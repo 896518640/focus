@@ -1,9 +1,24 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { showToast, showSuccessToast, showFailToast } from 'vant';
+import useAudioTranscription from '@/hooks/useAudioTranscription';
 
 const router = useRouter();
+
+// 使用音频转录hook
+const {
+  transcribing,
+  transcriptionComplete,
+  transcriptionProgress,
+  transcriptionText,
+  transcriptionError,
+  currentTaskId,
+  statusText,
+  uploadAndTranscribe,
+  resetTranscription,
+  cleanup
+} = useAudioTranscription();
 
 // 上传状态
 const uploading = ref(false);
@@ -15,6 +30,7 @@ const totalSize = ref('');
 const fileType = ref('');
 const uploadStartTime = ref(0);
 const uploadEstimatedTime = ref('');
+const uploadedFile = ref<File | null>(null);
 
 // 拖放状态
 const isDragOver = ref(false);
@@ -59,7 +75,7 @@ const getFileTypeInfo = (filename: string) => {
   const ext = filename.split('.').pop()?.toLowerCase() || '';
   let icon = 'fa-file-audio';
   let color = 'var(--secondary-color, #5AC8FA)';
-  
+
   switch (ext) {
     case 'mp3':
       icon = 'fa-file-audio';
@@ -82,7 +98,7 @@ const getFileTypeInfo = (filename: string) => {
       icon = 'fa-file';
       color = 'var(--text-secondary, #8E8E93)';
   }
-  
+
   return { icon, color, ext };
 };
 
@@ -101,85 +117,97 @@ const simulateUpload = (name = '未命名文件.mp3', size = 0) => {
       message: '不支持的文件格式',
       position: 'top'
     });
-    
+
     // 添加触觉反馈 - 错误模式
     if ('vibrate' in navigator) {
       navigator.vibrate([30, 50, 30]);
     }
     return;
   }
-  
+
   fileName.value = name;
   uploading.value = true;
   uploadProgress.value = 0;
   uploadComplete.value = false;
   uploadStartTime.value = Date.now();
-  
+
   // 获取文件类型信息
   const { ext } = getFileTypeInfo(name);
   fileType.value = ext.toUpperCase();
-  
+
   // 生成随机文件大小或使用实际大小
   const total = size > 0 ? size : Math.round(Math.random() * 10 + 5) * 1024 * 1024;
   totalSize.value = formatFileSize(total);
-  
+
   // 添加触觉反馈 - 开始上传
   if ('vibrate' in navigator) {
     navigator.vibrate(15);
   }
-  
+
+  console.log('开始上传:', name, totalSize.value);
   const interval = setInterval(() => {
     if (uploadProgress.value < 100) {
+      console.log('上传进度:', uploadProgress.value);
       // 计算上传速度和剩余时间
       const elapsedTime = (Date.now() - uploadStartTime.value) / 1000;
       const progressRate = uploadProgress.value / 100;
       const totalEstimatedTime = elapsedTime / progressRate;
       const remainingTime = totalEstimatedTime - elapsedTime;
-      
+
       if (remainingTime > 0) {
-        uploadEstimatedTime.value = remainingTime > 60 
-          ? `约${Math.ceil(remainingTime / 60)}分钟` 
+        uploadEstimatedTime.value = remainingTime > 60
+          ? `约${Math.ceil(remainingTime / 60)}分钟`
           : `约${Math.ceil(remainingTime)}秒`;
       }
-      
+
       // 非线性进度，模拟真实上传
       const increment = Math.max(0.5, Math.random() * 3 * (1 - uploadProgress.value / 100));
-      uploadProgress.value = Math.min(99, uploadProgress.value + increment);
-      
+
+      // 允许进度条达到100%
+      if (uploadProgress.value >= 95) {
+        // 当进度超过95%时，有一定概率直接完成
+        if (Math.random() > 0.7) {
+          uploadProgress.value = 100;
+        } else {
+          uploadProgress.value = Math.min(99, uploadProgress.value + increment);
+        }
+      } else {
+        uploadProgress.value = Math.min(99, uploadProgress.value + increment);
+      }
+
       // 更新当前上传大小
       const current = Math.round(total * (uploadProgress.value / 100));
       fileSize.value = `${formatFileSize(current)} / ${formatFileSize(total)}`;
-      
+
       // 在特定进度点添加触觉反馈
       if (Math.floor(uploadProgress.value) % 25 === 0) {
         if ('vibrate' in navigator) {
           navigator.vibrate(5);
         }
       }
-    } else {
+    } else if (uploadProgress.value >= 100) {
+      console.log('上传完成');
       clearInterval(interval);
-      
+
+      // 更新最终文件大小
+      fileSize.value = `${totalSize.value} / ${totalSize.value}`;
+
+      // 直接显示完成状态
+      completeUpload();
+    } else {
+      console.log('上传完成');
+      clearInterval(interval);
       // 延迟显示完成状态
       setTimeout(() => {
         uploadProgress.value = 100;
-        
+
         // 更新最终文件大小
         fileSize.value = `${totalSize.value} / ${totalSize.value}`;
-        
+
         // 延迟显示完成动画
         setTimeout(() => {
-          uploading.value = false;
-          uploadComplete.value = true;
-          
-          // 添加触觉反馈 - 完成模式
-          if ('vibrate' in navigator) {
-            navigator.vibrate([10, 30, 10]);
-          }
-          
-          showSuccessToast({
-            message: '上传成功',
-            position: 'top'
-          });
+          // 调用完成上传函数
+          completeUpload();
         }, 500);
       }, 300);
     }
@@ -187,17 +215,21 @@ const simulateUpload = (name = '未命名文件.mp3', size = 0) => {
 };
 
 // 文件上传处理
-const handleFileUpload = (event: Event) => {
+const handleFileUpload = async (event: Event) => {
   const fileInput = event.target as HTMLInputElement;
   if (fileInput && fileInput.files && fileInput.files.length > 0) {
     const file = fileInput.files[0];
+    console.log('选择的文件:', file.name);
+    uploadedFile.value = file;
+    console.log('文件大小:', file.size);
     simulateUpload(file.name, file.size);
-    
+
     // 添加触觉反馈
     if ('vibrate' in navigator) {
       navigator.vibrate(5);
     }
   } else {
+    console.log('未选择文件');
     simulateUpload();
   }
 };
@@ -207,7 +239,7 @@ const selectFile = () => {
   const fileInput = document.getElementById('file-input') as HTMLInputElement;
   if (fileInput) {
     fileInput.click();
-    
+
     // 添加触觉反馈
     if ('vibrate' in navigator) {
       navigator.vibrate(5);
@@ -222,12 +254,12 @@ const recordNow = () => {
   setTimeout(() => {
     isAnimating.value = false;
   }, 300);
-  
+
   showToast({
     message: '录音功能即将上线',
     position: 'top'
   });
-  
+
   // 添加触觉反馈 - 录音模式
   if ('vibrate' in navigator) {
     navigator.vibrate([10, 20, 10]);
@@ -239,12 +271,16 @@ const resetUpload = () => {
   uploading.value = false;
   uploadProgress.value = 0;
   uploadComplete.value = false;
-  
+  uploadedFile.value = null;
+
+  // 重置转录状态
+  resetTranscription();
+
   // 添加触觉反馈
   if ('vibrate' in navigator) {
     navigator.vibrate(5);
   }
-  
+
   // 动画效果
   nextTick(() => {
     const dropArea = document.getElementById('drop-area');
@@ -257,19 +293,114 @@ const resetUpload = () => {
   });
 };
 
+// 复制转录文本
+const copyTranscriptionText = () => {
+  if (transcriptionText.value) {
+    // 使用剪贴板API复制文本
+    navigator.clipboard.writeText(transcriptionText.value)
+      .then(() => {
+        showToast({
+          message: '文本已复制到剪贴板',
+          position: 'bottom'
+        });
+
+        // 添加触觉反馈
+        if ('vibrate' in navigator) {
+          navigator.vibrate(5);
+        }
+      })
+      .catch(err => {
+        console.error('复制失败:', err);
+        showToast({
+          message: '复制失败',
+          position: 'bottom'
+        });
+      });
+  }
+};
+
+// 分享转录文本
+const shareTranscriptionText = () => {
+  if (transcriptionText.value) {
+    // 判断是否支持Web Share API
+    if (navigator.share) {
+      navigator.share({
+        title: '转录结果',
+        text: transcriptionText.value
+      })
+      .then(() => {
+        console.log('分享成功');
+
+        // 添加触觉反馈
+        if ('vibrate' in navigator) {
+          navigator.vibrate(5);
+        }
+      })
+      .catch(err => {
+        console.error('分享失败:', err);
+        showToast({
+          message: '分享失败',
+          position: 'bottom'
+        });
+      });
+    } else {
+      // 如果不支持Web Share API，则复制到剪贴板
+      copyTranscriptionText();
+      showToast({
+        message: '已复制到剪贴板，请手动分享',
+        position: 'bottom'
+      });
+    }
+  }
+};
+
+// 重试转录
+const retryTranscription = async () => {
+  if (uploadedFile.value) {
+    try {
+      // 重置转录状态
+      resetTranscription();
+
+      // 添加触觉反馈
+      if ('vibrate' in navigator) {
+        navigator.vibrate([10, 20, 10]);
+      }
+
+      // 重新开始转录
+      await uploadAndTranscribe(uploadedFile.value);
+
+      showToast({
+        message: '重新转录中...',
+        position: 'bottom'
+      });
+    } catch (error: any) {
+      console.error('重试转录失败:', error);
+      showFailToast({
+        message: '重试失败: ' + (error.message || '未知错误'),
+        position: 'top'
+      });
+    }
+  } else {
+    showToast({
+      message: '没有可用的文件进行重试',
+      position: 'bottom'
+    });
+  }
+};
+
 // 查看结果
 const viewResult = () => {
   // 添加到最近上传
   addToRecentUploads();
-  
+
   // 动画效果
   isAnimating.value = true;
-  
+
   // 添加触觉反馈
   if ('vibrate' in navigator) {
     navigator.vibrate(10);
   }
-  
+
   // 延迟跳转，让动画有时间完成
   setTimeout(() => {
     // 跳转到历史记录
@@ -282,10 +413,10 @@ const addToRecentUploads = () => {
   const now = new Date();
   const month = now.getMonth() + 1;
   const day = now.getDate();
-  
+
   // 获取文件类型信息
   const { icon, color } = getFileTypeInfo(fileName.value);
-  
+
   recentUploads.value.unshift({
     id: Date.now(),
     title: fileName.value,
@@ -293,7 +424,7 @@ const addToRecentUploads = () => {
     icon,
     color
   });
-  
+
   // 保持列表最多显示5项
   if (recentUploads.value.length > 5) {
     recentUploads.value = recentUploads.value.slice(0, 5);
@@ -304,12 +435,12 @@ const addToRecentUploads = () => {
 const viewAllHistory = () => {
   // 动画效果
   isAnimating.value = true;
-  
+
   // 添加触觉反馈
   if ('vibrate' in navigator) {
     navigator.vibrate(5);
   }
-  
+
   // 延迟跳转，让动画有时间完成
   setTimeout(() => {
     router.push('/history');
@@ -329,11 +460,11 @@ const handleDragLeave = () => {
 const handleDrop = (event: DragEvent) => {
   event.preventDefault();
   isDragOver.value = false;
-  
+
   if (event.dataTransfer && event.dataTransfer.files.length > 0) {
     const file = event.dataTransfer.files[0];
     simulateUpload(file.name, file.size);
-    
+
     // 添加触觉反馈
     if ('vibrate' in navigator) {
       navigator.vibrate([5, 10, 5]);
@@ -347,10 +478,43 @@ const showFileActions = (id: number) => {
     message: '文件操作菜单即将上线',
     position: 'bottom'
   });
-  
+
   // 添加触觉反馈
   if ('vibrate' in navigator) {
     navigator.vibrate(5);
+  }
+};
+
+// 完成上传
+const completeUpload = async () => {
+  uploading.value = false;
+  uploadComplete.value = true;
+
+  // 添加触觉反馈 - 完成模式
+  if ('vibrate' in navigator) {
+    navigator.vibrate([10, 30, 10]);
+  }
+
+  showSuccessToast({
+    message: '上传成功',
+    position: 'top'
+  });
+
+  // 开始转录处理
+  if (uploadedFile.value) {
+    try {
+      // 重置转录状态
+      resetTranscription();
+
+      // 开始转录
+      await uploadAndTranscribe(uploadedFile.value);
+    } catch (error: any) {
+      console.error('转录失败:', error);
+      showFailToast({
+        message: '转录失败: ' + (error.message || '未知错误'),
+        position: 'top'
+      });
+    }
   }
 };
 
@@ -358,12 +522,12 @@ const showFileActions = (id: number) => {
 const cancelUpload = () => {
   uploading.value = false;
   uploadProgress.value = 0;
-  
+
   // 添加触觉反馈
   if ('vibrate' in navigator) {
     navigator.vibrate([10, 5, 10]);
   }
-  
+
   showToast({
     message: '已取消上传',
     position: 'top'
@@ -380,6 +544,21 @@ onMounted(() => {
     dropArea.addEventListener('click', selectFile);
   }
 });
+
+// 页面卸载时清理资源
+onUnmounted(() => {
+  // 清理转录相关资源
+  cleanup();
+
+  // 清理拖放事件
+  const dropArea = document.getElementById('drop-area');
+  if (dropArea) {
+    dropArea.removeEventListener('dragover', handleDragOver);
+    dropArea.removeEventListener('dragleave', handleDragLeave);
+    dropArea.removeEventListener('drop', handleDrop);
+    dropArea.removeEventListener('click', selectFile);
+  }
+});
 </script>
 
 <template>
@@ -391,7 +570,7 @@ onMounted(() => {
         <i class="fas fa-ellipsis-h"></i>
       </button>
     </div>
-    
+
     <!-- 主要内容区 -->
     <div class="main-content">
       <!-- 上传区域 -->
@@ -404,7 +583,7 @@ onMounted(() => {
           <div class="upload-description">拖放文件到此处，或点击选择文件</div>
           <div class="file-types">支持的格式: MP3, WAV, M4A, AAC, FLAC</div>
         </div>
-        
+
         <div v-if="!uploading && !uploadComplete" class="upload-buttons">
           <button class="upload-btn" @click="selectFile" :class="{ 'btn-pressed': isAnimating }">
             <i class="fas fa-folder-open"></i>
@@ -416,7 +595,7 @@ onMounted(() => {
           </button>
           <input type="file" id="file-input" accept="audio/*" class="file-input" @change="handleFileUpload">
         </div>
-        
+
         <!-- 上传进度 -->
         <div v-if="uploading" class="upload-progress">
           <div class="progress-header">
@@ -425,7 +604,7 @@ onMounted(() => {
               <i class="fas fa-times"></i>
             </button>
           </div>
-          
+
           <div class="progress-item">
             <div class="progress-icon">
               <i class="fas fa-file-audio"></i>
@@ -445,7 +624,7 @@ onMounted(() => {
             </div>
           </div>
         </div>
-        
+
         <!-- 上传完成 -->
         <div v-if="uploadComplete" class="upload-complete">
           <div class="complete-icon">
@@ -453,6 +632,69 @@ onMounted(() => {
           </div>
           <div class="complete-title">上传成功</div>
           <div class="complete-description">文件已上传，正在处理中</div>
+
+          <!-- 转录状态和进度 - iOS风格 -->
+          <div v-if="transcribing" class="ios-transcription-status">
+            <div class="ios-status-header">
+              <div class="ios-status-icon">
+                <i class="fas fa-waveform"></i>
+              </div>
+              <div class="ios-status-text">
+                <div class="ios-status-title">正在转录</div>
+                <div class="ios-status-subtitle">请稍候片刻...</div>
+              </div>
+            </div>
+            <div class="ios-progress-container">
+              <div class="ios-progress-bar">
+                <div class="ios-progress-value" :style="{ width: transcriptionProgress + '%' }"></div>
+              </div>
+              <div class="ios-progress-percentage">{{ Math.round(transcriptionProgress) }}%</div>
+            </div>
+          </div>
+
+          <!-- 转录结果 - iOS风格 -->
+          <div v-if="transcriptionComplete && transcriptionText" class="ios-transcription-result">
+            <div class="ios-result-header">
+              <div class="ios-result-icon">
+                <i class="fas fa-check-circle"></i>
+              </div>
+              <div class="ios-result-title">转录完成</div>
+              <div class="ios-result-badge">{{ statusText }}</div>
+            </div>
+            <div class="ios-result-card">
+              <div class="ios-result-content">
+                <div class="ios-result-text" v-text="transcriptionText"></div>
+              </div>
+              <div class="ios-result-actions">
+                <button class="ios-action-button" @click="copyTranscriptionText">
+                  <i class="fas fa-copy"></i>
+                  <span>复制</span>
+                </button>
+                <button class="ios-action-button" @click="shareTranscriptionText">
+                  <i class="fas fa-share-alt"></i>
+                  <span>分享</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 转录错误 - iOS风格 -->
+          <div v-if="transcriptionError" class="ios-transcription-error">
+            <div class="ios-error-header">
+              <div class="ios-error-icon">
+                <i class="fas fa-exclamation-circle"></i>
+              </div>
+              <div class="ios-error-title">转录失败</div>
+            </div>
+            <div class="ios-error-card">
+              <div class="ios-error-message">{{ transcriptionError }}</div>
+              <button class="ios-retry-button" @click="retryTranscription">
+                <i class="fas fa-redo-alt"></i>
+                <span>重试</span>
+              </button>
+            </div>
+          </div>
+
           <div class="button-group">
             <button class="primary-button" @click="resetUpload">
               继续上传
@@ -463,14 +705,14 @@ onMounted(() => {
           </div>
         </div>
       </div>
-      
+
       <!-- 最近上传 -->
       <div class="recent-section">
         <div class="section-header">
           <div class="section-title">最近上传</div>
           <div class="section-more" @click="viewAllHistory">查看全部</div>
         </div>
-        
+
         <transition-group name="file-list" tag="div" class="file-list">
           <div v-for="item in recentUploads" :key="item.id" class="file-item">
             <div class="file-icon" :style="{ backgroundColor: item.color }">
@@ -488,7 +730,7 @@ onMounted(() => {
           </div>
         </transition-group>
       </div>
-      
+
       <!-- 使用提示 -->
       <div class="upload-tips">
         <div class="tips-title">
@@ -926,6 +1168,269 @@ onMounted(() => {
   font-size: 16px;
   color: var(--text-secondary, #8E8E93);
   margin-bottom: 20px;
+}
+
+/* iOS风格转录状态和进度 */
+.ios-transcription-status {
+  width: 100%;
+  margin: 15px 0 25px;
+  animation: slideInUp 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.ios-status-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.ios-status-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-color, #007AFF), #5AC8FA);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  color: white;
+  font-size: 16px;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+  animation: pulse 2s infinite;
+}
+
+.ios-status-text {
+  flex: 1;
+}
+
+.ios-status-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary, #000000);
+  margin-bottom: 4px;
+}
+
+.ios-status-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary, #8E8E93);
+}
+
+.ios-progress-container {
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.ios-progress-bar {
+  flex: 1;
+  height: 6px;
+  background-color: var(--background-color, #F2F2F7);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-right: 10px;
+  position: relative;
+}
+
+.ios-progress-value {
+  height: 100%;
+  background: linear-gradient(to right, var(--primary-color, #007AFF), #5AC8FA);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.ios-progress-value::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0) 100%);
+  animation: shimmer 1.5s infinite;
+}
+
+.ios-progress-percentage {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--primary-color, #007AFF);
+  min-width: 40px;
+  text-align: right;
+}
+
+/* iOS风格转录结果 */
+.ios-transcription-result {
+  width: 100%;
+  margin: 15px 0 25px;
+  animation: slideInUp 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.ios-result-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.ios-result-icon {
+  font-size: 20px;
+  color: var(--success-color, #4CD964);
+  margin-right: 10px;
+}
+
+.ios-result-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary, #000000);
+  flex: 1;
+}
+
+.ios-result-badge {
+  font-size: 12px;
+  color: var(--success-color, #4CD964);
+  background-color: rgba(76, 217, 100, 0.1);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.ios-result-card {
+  background-color: var(--background-light, #FFFFFF);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border-color, #D1D1D6);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.ios-result-card:active {
+  transform: scale(0.98);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.03);
+}
+
+.ios-result-content {
+  padding: 16px;
+  max-height: 200px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ios-result-text {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-primary, #000000);
+  white-space: pre-wrap;
+}
+
+.ios-result-actions {
+  display: flex;
+  border-top: 1px solid var(--border-color, #D1D1D6);
+}
+
+.ios-action-button {
+  flex: 1;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--primary-color, #007AFF);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.ios-action-button:first-child {
+  border-right: 1px solid var(--border-color, #D1D1D6);
+}
+
+.ios-action-button:active {
+  background-color: rgba(0, 122, 255, 0.05);
+}
+
+.ios-action-button i {
+  margin-right: 6px;
+}
+
+/* iOS风格转录错误 */
+.ios-transcription-error {
+  width: 100%;
+  margin: 15px 0 25px;
+  animation: slideInUp 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.ios-error-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.ios-error-icon {
+  font-size: 20px;
+  color: var(--error-color, #FF3B30);
+  margin-right: 10px;
+}
+
+.ios-error-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--error-color, #FF3B30);
+}
+
+.ios-error-card {
+  background-color: rgba(255, 59, 48, 0.05);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid rgba(255, 59, 48, 0.2);
+}
+
+.ios-error-message {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-primary, #000000);
+  margin-bottom: 15px;
+}
+
+.ios-retry-button {
+  background-color: var(--error-color, #FF3B30);
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 10px 20px;
+  font-size: 15px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(255, 59, 48, 0.3);
+  margin: 0 auto;
+}
+
+.ios-retry-button:active {
+  transform: scale(0.95);
+  box-shadow: 0 1px 4px rgba(255, 59, 48, 0.2);
+}
+
+.ios-retry-button i {
+  margin-right: 6px;
+  font-size: 14px;
+}
+
+/* 新增动画 */
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
 .button-group {

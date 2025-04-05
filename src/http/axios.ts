@@ -80,11 +80,19 @@ function createInstance() {
   instance.interceptors.request.use(
     // 发送之前
     config => {
-      // 从 cookie 获取 token
-      const token = getToken()
-      // 如果有 token 则添加到请求头
-      if (token && config.headers) {
-        config.headers.Authorization = `Bearer ${token}`
+      // 检查是否是通义听悟API请求，如果是则不添加Token
+      const isTingwuApi = config.url && (
+        config.url.includes('/tingwu/tasks') || 
+        config.url.includes('/tingwu/upload')
+      );
+      
+      if (!isTingwuApi) {
+        // 从 cookie 获取 token
+        const token = getToken()
+        // 如果有 token 则添加到请求头
+        if (token && config.headers) {
+          config.headers.Authorization = `Bearer ${token}`
+        }
       }
       return config
     },
