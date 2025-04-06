@@ -3,6 +3,16 @@ import tingwuService, { TingwuTaskStatus } from '@/common/services/tingwuService
 import { showToast } from 'vant';
 
 /**
+ * 转录设置接口
+ */
+export interface TranscriptionSettings {
+  sourceLanguage?: string;
+  translation?: string;
+  speaker?: string;
+  type?: string;
+}
+
+/**
  * 音频转录Hook
  * 提供音频文件上传和转录功能
  */
@@ -29,9 +39,10 @@ export default function useAudioTranscription() {
   /**
    * 上传并转录音频文件
    * @param file 音频文件
+   * @param settings 转录设置
    * @returns 转录任务ID
    */
-  const uploadAndTranscribe = async (file: File) => {
+  const uploadAndTranscribe = async (file: File, settings?: TranscriptionSettings) => {
     try {
       // 重置状态
       resetTranscription();
@@ -40,11 +51,19 @@ export default function useAudioTranscription() {
       transcribing.value = true;
       transcriptionProgress.value = 10; // 初始进度
       
-      // 上传文件并创建转录任务
-      const result = await tingwuService.uploadAndTranscribe(file, {
+      // 默认设置
+      const defaultSettings: TranscriptionSettings = {
         sourceLanguage: 'cn',
         type: 'offline'
-      });
+      };
+      
+      // 合并设置
+      const finalSettings = { ...defaultSettings, ...settings };
+      
+      console.log('开始转录，使用设置:', finalSettings);
+      
+      // 上传文件并创建转录任务
+      const result = await tingwuService.uploadAndTranscribe(file, finalSettings);
       
       // 保存任务ID
       currentTaskId.value = result.taskId;
