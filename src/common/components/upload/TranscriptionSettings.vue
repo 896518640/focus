@@ -26,10 +26,10 @@ const translationOptions = [
 
 // 发言人选项
 const speakerOptions = [
-  { id: 'single', name: '单人演讲' },
-  { id: 'multiple', name: '多人对话' },
-  { id: 'interview', name: '访谈' },
-  { id: 'meeting', name: '会议' }
+  { id: 1, name: '单人演讲' },
+  { id: 2, name: '2人对话' },
+  { id: 0, name: '多人讨论' },
+  { id: -1, name: '不区分' }
 ];
 
 // 当前选择的语言
@@ -37,7 +37,7 @@ const selectedLanguage = ref('cn');
 // 当前选择的翻译
 const selectedTranslation = ref('none');
 // 当前选择的发言人
-const selectedSpeaker = ref('single');
+const selectedSpeaker = ref(-1);
 
 // 选择语言
 const selectLanguage = (id: string) => {
@@ -61,7 +61,7 @@ const updateTranslation = (event: Event) => {
 const updateSpeaker = (event: Event) => {
   const target = event.target as HTMLSelectElement;
   if (target) {
-    selectedSpeaker.value = target.value;
+    selectedSpeaker.value = Number(target.value);
     vibrate(5);
     emit('update:settings', getSettings());
   }
@@ -69,12 +69,37 @@ const updateSpeaker = (event: Event) => {
 
 // 获取当前设置
 const getSettings = (): TranscriptionSettingsOptions => {
-  return {
-    sourceLanguage: selectedLanguage.value,
-    translation: selectedTranslation.value !== 'none' ? selectedTranslation.value : undefined,
-    speaker: selectedSpeaker.value,
+  // 创建基本设置对象
+  const settings: TranscriptionSettingsOptions = {
+    input: {
+      sourceLanguage: selectedLanguage.value
+    },
+    parameters: {
+      transcription: {
+        diarizationEnabled: selectedSpeaker.value !== -1
+      },
+      translationEnabled: selectedTranslation.value !== 'none'
+    },
     type: 'offline'
   };
+  
+  // 只有当启用说话人分离时，才添加 diarization 属性
+  if (selectedSpeaker.value !== -1 && settings.parameters?.transcription) {
+    // 使用类型断言
+    (settings.parameters.transcription as any).diarization = {
+      speakerCount: selectedSpeaker.value
+    };
+  }
+  
+  // 只有当启用翻译时，才添加 translation 属性
+  if (selectedTranslation.value !== 'none' && settings.parameters) {
+    // 使用类型断言
+    (settings.parameters as any).translation = {
+      targetLanguages: [selectedTranslation.value]
+    };
+  }
+  
+  return settings;
 };
 
 // 组件事件

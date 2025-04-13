@@ -1,19 +1,20 @@
 // tingwuService.ts
 // 通义听悟API服务
 
+import { TranscriptionSettings } from '@/hooks/useAudioTranscription';
 import request from '../../common/utils/request';
 
 // 应用Key，实际应用中应从环境变量或配置中获取
 const TINGWU_APP_KEY = 'ZuTDHhX19DqHnIut';
 
 /**
- * 任务状态枚举
+ * 转录任务状态枚举
  */
 export enum TingwuTaskStatus {
-  RUNNING = 'RUNNING',
-  SUCCESS = 'SUCCESS',
-  FAILED = 'FAILED',
-  COMPLETED = 'COMPLETED' // 添加COMPLETED状态
+  PENDING = 'PENDING', // 等待中
+  RUNNING = 'RUNNING', // 运行中
+  COMPLETED = 'COMPLETED', // 已完成（后端可能返回的另一种形式）
+  FAILED = 'FAILED' // 失败
 }
 
 /**
@@ -24,12 +25,8 @@ export interface TingwuTaskInfo {
   taskKey?: string;
   status: TingwuTaskStatus;
   result?: {
-    sentences: Array<{
-      text: string;
-      startTime: number;
-      endTime: number;
-    }>;
-    transcription: string;
+    transcription?: string;
+    translation?: string;
   };
   errorMessage?: string;
 }
@@ -84,19 +81,28 @@ export async function uploadAudioFile(file: File): Promise<string> {
  */
 export async function uploadAndTranscribe(
   file: File,
-  options?: { sourceLanguage?: string, type?: string }
+  options?: TranscriptionSettings
 ): Promise<{taskId: string, fileUrl: string}> {
   try {
     const formData = new FormData();
     formData.append('audio', file);
 
     // 添加转录选项
-    if (options?.sourceLanguage) {
-      formData.append('sourceLanguage', options.sourceLanguage);
+    if (options?.input?.sourceLanguage) {
+      formData.append('sourceLanguage', options.input.sourceLanguage);
     }
 
     if (options?.type) {
       formData.append('type', options.type);
+    }
+
+    // 需要把整个options 加进来
+    if (options?.input) {
+      formData.append('input', JSON.stringify(options.input));
+    }
+
+    if(options?.parameters) {
+      formData.append('parameters', JSON.stringify(options.parameters));
     }
 
     const response = await request<ApiResponse>({
@@ -180,27 +186,22 @@ export async function getTingwuTaskInfo(taskId: string): Promise<TingwuTaskInfo>
       taskInfo = response.data;
     }
 
-    // 格式化结果
-    return {
-      taskId: taskInfo.taskId || taskInfo.TaskId || taskId,
-      taskKey: taskInfo.taskKey || taskInfo.TaskKey,
-      status: taskInfo.taskStatus === 'SUCCESS' || taskInfo.TaskStatus === 'SUCCESS' ? TingwuTaskStatus.SUCCESS :
-              taskInfo.taskStatus === 'FAILED' || taskInfo.TaskStatus === 'FAILED' ? TingwuTaskStatus.FAILED :
-              taskInfo.taskStatus === 'COMPLETED' || taskInfo.TaskStatus === 'COMPLETED' ? TingwuTaskStatus.COMPLETED :
-              TingwuTaskStatus.RUNNING,
-      result: taskInfo.transcription ? {
-        transcription: taskInfo.transcription,
-        sentences: []
-      } : taskInfo.Result ? {
-        sentences: taskInfo.Result.Sentences?.map((s: any) => ({
-          text: s.Text,
-          startTime: s.BeginTime,
-          endTime: s.EndTime
-        })) || [],
-        transcription: taskInfo.Result.Text || ''
-      } : undefined,
-      errorMessage: taskInfo.errorMessage || taskInfo.ErrorMessage
+    console.log('获取任务信息:', taskInfo);
+    
+    // 格式化结果 - 确保正确获取 translation 和 transcription URL
+    const result: TingwuTaskInfo = {
+      taskId: taskInfo.taskId,
+      status: taskInfo.taskStatus,
+      result: {
+        // 检查多种可能的路径
+        translation: taskInfo?.result?.translation || taskInfo?.translation,
+        transcription: taskInfo?.result?.transcription || taskInfo?.transcription
+      },
+      errorMessage: taskInfo.errorMessage
     };
+    
+    console.log('格式化后的任务信息:', result);
+    return result;
   } catch (error: any) {
     console.error('获取任务信息失败:', error.message);
     throw new Error(`获取任务信息失败: ${error.message}`);
@@ -230,24 +231,16 @@ export async function pollTaskUntilComplete(
     });
 
     if (response?.data?.data) {
-      const result = response.data.data.Data || response.data.data;
-
+      const result = response.data.data;
       // 格式化结果
       return {
-        taskId: result.TaskId || taskId,
-        taskKey: result.TaskKey,
-        status: result.TaskStatus === 'SUCCESS' ? TingwuTaskStatus.SUCCESS :
-                result.TaskStatus === 'FAILED' ? TingwuTaskStatus.FAILED :
-                TingwuTaskStatus.RUNNING,
-        result: result.Result ? {
-          sentences: result.Result.Sentences?.map((s: any) => ({
-            text: s.Text,
-            startTime: s.BeginTime,
-            endTime: s.EndTime
-          })) || [],
-          transcription: result.Result.Transcription || ''
-        } : undefined,
-        errorMessage: result.ErrorMessage
+        taskId: result.taskId,
+        status: result.taskStatus,
+        result: {
+          transcription: result.result?.transcription || '',
+          translation: result.result?.translation || ''
+        },
+        errorMessage: result.errorMessage
       };
     } else {
       throw new Error('轮询任务失败: 无效的响应格式');
@@ -277,23 +270,28 @@ async function clientSidePollTask(
     const checkStatus = async () => {
       try {
         const taskInfo = await getTingwuTaskInfo(taskId);
+        console.log('客户端轮询获取到的任务状态:', taskInfo.status);
 
-        if (taskInfo.status === TingwuTaskStatus.SUCCESS) {
+        if (taskInfo.status === TingwuTaskStatus.COMPLETED) {
+          console.log('任务已完成，停止轮询');
           resolve(taskInfo);
           return;
         }
 
         if (taskInfo.status === TingwuTaskStatus.FAILED) {
+          console.log('任务失败，停止轮询');
           reject(new Error(`任务失败: ${taskInfo.errorMessage || '未知错误'}`));
           return;
         }
 
         attempts++;
         if (attempts >= maxAttempts) {
+          console.log('任务轮询超时，停止轮询');
           reject(new Error('任务轮询超时'));
           return;
         }
 
+        console.log(`任务仍在进行中，${interval/1000}秒后继续轮询，当前尝试次数: ${attempts}`);
         setTimeout(checkStatus, interval);
       } catch (error) {
         reject(error);

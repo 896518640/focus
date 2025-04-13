@@ -21,9 +21,17 @@ const router = useRouter();
 
 // 转录设置
 const transcriptionSettings = ref<TranscriptionSettingsOptions>({
-  sourceLanguage: 'cn',
-  translation: undefined,
-  speaker: 'single',
+  input: {
+    sourceLanguage: 'cn'
+  },
+  parameters: {
+    transcription: {
+      diarizationEnabled: false,
+      diarization: {
+        speakerCount: 1
+      }
+    }
+  },
   type: 'offline'
 });
 
@@ -33,6 +41,7 @@ const {
   transcriptionComplete,
   transcriptionProgress,
   transcriptionText,
+  translationText, // 添加翻译文本
   transcriptionError,
   statusText,
   currentTaskId,
@@ -94,6 +103,16 @@ watch(uploadComplete, async (newVal, oldVal) => {
   if (newVal === true && oldVal === false) {
     console.log('上传完成，开始调用转录接口');
     await startTranscription();
+  }
+});
+
+// 监听转录完成状态，自动滚动到结果卡片
+watch(transcriptionComplete, (newVal, oldVal) => {
+  if (newVal === true && oldVal === false) {
+    const transcriptionCard = document.getElementById('transcription-card');
+    if (transcriptionCard) {
+      transcriptionCard.scrollIntoView({ behavior: 'smooth' });
+    }
   }
 });
 
@@ -169,16 +188,16 @@ const handleDropFile = (file: File) => {
 };
 
 // 复制转录文本
-const copyTranscriptionText = () => {
-  if (transcriptionText.value) {
-    copyText(transcriptionText.value);
+const copyTranscriptionText = (text = transcriptionText.value) => {
+  if (text) {
+    copyText(text);
   }
 };
 
 // 分享转录文本
-const shareTranscriptionText = () => {
-  if (transcriptionText.value) {
-    shareText(transcriptionText.value);
+const shareTranscriptionText = (text = transcriptionText.value) => {
+  if (text) {
+    shareText(text);
   }
 };
 
@@ -347,18 +366,22 @@ onUnmounted(() => {
 
         <!-- 上传完成状态 -->
         <div v-if="uploadComplete" class="upload-complete">
-          <div class="complete-icon">
-            <i class="fas fa-check-circle"></i>
+          <div class="upload-success-container">
+            <div class="success-icon">
+              <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="success-info">
+              <div class="success-title">上传成功</div>
+              <div class="success-description">文件已上传，正在处理中</div>
+            </div>
           </div>
-          <div class="complete-title">上传成功</div>
-          <div class="complete-description">文件已上传，正在处理中</div>
           
           <!-- 操作按钮 -->
-          <div class="button-group">
-            <button class="primary-button" @click="resetUpload">
+          <div class="button-row">
+            <button class="compact-button primary-button" @click="resetUpload">
               <i class="fas fa-upload mr-2"></i>继续上传
             </button>
-            <button class="secondary-button" @click="viewResult">
+            <button class="compact-button secondary-button" @click="viewResult">
               <i class="fas fa-history mr-2"></i>查看历史
             </button>
           </div>
@@ -367,16 +390,18 @@ onUnmounted(() => {
       
       <!-- 转录结果卡片 - 单独放在上传卡片下面 -->
       <TranscriptionCard
+        id="transcription-card"
         v-if="uploadComplete || transcribing"
         :transcribing="transcribing"
         :transcriptionComplete="transcriptionComplete"
         :transcriptionProgress="transcriptionProgress"
         :transcriptionText="transcriptionText"
+        :translationText="translationText"
         :transcriptionError="transcriptionError"
         :statusText="statusText"
-        @retry="retryTranscription"
         @copy="copyTranscriptionText"
         @share="shareTranscriptionText"
+        @retry="retryTranscription"
       />
 
       <!-- 使用最近上传组件 -->
@@ -484,37 +509,53 @@ onUnmounted(() => {
 .upload-complete {
   width: 100%;
   animation: bounceIn 0.5s ease;
+  padding: 10px;
 }
 
-.complete-icon {
-  font-size: 50px;
+.upload-success-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.success-icon {
+  font-size: 36px;
   color: var(--success-color, #4CD964);
-  margin-bottom: 16px;
+  margin-right: 15px;
   animation: pulse 2s infinite;
 }
 
-.complete-title {
-  font-size: 20px;
+.success-info {
+  text-align: left;
+  flex: 1;
+}
+
+.success-title {
+  font-size: 18px;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   color: var(--text-primary, #000000);
 }
 
-.complete-description {
-  font-size: 15px;
+.success-description {
+  font-size: 14px;
   color: var(--text-secondary, #8E8E93);
-  margin-bottom: 20px;
 }
 
-.button-group {
+.button-row {
   display: flex;
-  flex-direction: column;
   width: 100%;
-  max-width: 300px;
-  margin: 16px auto 0;
   gap: 10px;
+  margin-top: 10px;
 }
 
+.compact-button {
+  flex: 1;
+  padding: 10px;
+  font-size: 14px;
+}
+
+/* 操作按钮 */
 .primary-button {
   background-color: var(--primary-color, #007AFF);
   color: white;

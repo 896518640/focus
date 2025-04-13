@@ -1,9 +1,9 @@
-\<script setup lang="ts">
+<script setup lang="ts">
 /**
  * 转录结果卡片组件
  * 基于iOS设计规范的独立转录结果展示卡片
  */
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { vibrate } from '@/utils/fileUtils';
 
 // 组件属性
@@ -24,6 +24,10 @@ const props = defineProps({
     type: String,
     default: ''
   },
+  translationText: {
+    type: String,
+    default: ''
+  },
   transcriptionError: {
     type: String,
     default: ''
@@ -33,6 +37,45 @@ const props = defineProps({
     default: '准备转录...'
   }
 });
+
+// 显示模式：原文或翻译
+const showTranslation = ref(false); // 默认显示原文，只有当检测到翻译文本时才切换
+
+// 计算属性：是否有翻译可用
+const hasTranslation = computed(() => {
+  console.log('翻译文本:', props.translationText);
+  const hasTranslationText = typeof props.translationText === 'string' && props.translationText !== '';
+  console.log('是否有翻译可用:', hasTranslationText);
+  return hasTranslationText;
+});
+
+// 监听翻译文本变化，如果有翻译文本，则自动切换到翻译模式
+watch(() => props.translationText, (newVal) => {
+  console.log('翻译文本变化:', newVal);
+  if (typeof newVal === 'string' && newVal !== '') {
+    console.log('检测到翻译文本，切换到翻译模式');
+    showTranslation.value = true;
+  }
+}, { immediate: true });
+
+// 计算属性：当前显示的文本
+const displayText = computed(() => {
+  // 如果选择显示翻译且有翻译文本，则显示翻译
+  if (showTranslation.value && hasTranslation.value) {
+    console.log('显示翻译文本');
+    return props.translationText;
+  }
+  // 否则显示原文
+  console.log('显示原文文本');
+  return props.transcriptionText;
+});
+
+// 切换显示模式
+const toggleDisplayMode = () => {
+  showTranslation.value = !showTranslation.value;
+  console.log('切换显示模式:', showTranslation.value ? '翻译' : '原文');
+  vibrate(3);
+};
 
 // 组件事件
 const emit = defineEmits(['retry', 'copy', 'share']);
@@ -56,13 +99,15 @@ const statusIcon = computed(() => {
 // 复制文本
 const handleCopy = () => {
   vibrate(5);
-  emit('copy');
+  // 复制当前显示的文本（原文或翻译）
+  emit('copy', displayText.value);
 };
 
 // 分享文本
 const handleShare = () => {
   vibrate(5);
-  emit('share');
+  // 分享当前显示的文本（原文或翻译）
+  emit('share', displayText.value);
 };
 
 // 重试转录
@@ -95,9 +140,37 @@ const handleRetry = () => {
       <div class="progress-bar" :style="{ width: `${transcriptionProgress}%` }"></div>
     </div>
 
-    <!-- 转录内容 -->
-    <div v-if="transcriptionComplete && transcriptionText" class="transcription-content">
-      <div class="text-content">{{ transcriptionText }}</div>
+    <!-- 翻译/原文切换按钮 -->
+    <div v-if="transcriptionComplete && hasTranslation" class="translation-toggle-container">
+      <div class="translation-status">
+        <span v-if="showTranslation" class="translation-badge">
+          <i class="fas fa-language"></i> 翻译模式
+        </span>
+        <span v-else class="original-badge">
+          <i class="fas fa-file-alt"></i> 原文模式
+        </span>
+      </div>
+      <div class="translation-toggle">
+        <button 
+          class="toggle-button" 
+          :class="{ active: !showTranslation }" 
+          @click="toggleDisplayMode"
+        >
+          原文
+        </button>
+        <button 
+          class="toggle-button" 
+          :class="{ active: showTranslation }" 
+          @click="toggleDisplayMode"
+        >
+          翻译
+        </button>
+      </div>
+    </div>
+
+    <!-- 转录/翻译内容 -->
+    <div v-if="transcriptionComplete && displayText" class="transcription-content">
+      <div class="text-content" :class="{ 'fade-in': transcriptionComplete }">{{ displayText }}</div>
     </div>
 
     <!-- 错误信息 -->
@@ -134,7 +207,6 @@ const handleRetry = () => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   animation: slideUp 0.3s ease;
   transition: all 0.3s ease;
-  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .transcription-card.success {
@@ -213,6 +285,91 @@ const handleRetry = () => {
   transition: width 0.3s ease;
 }
 
+/* 翻译/原文切换按钮 */
+.translation-toggle-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 12px 0;
+}
+
+.translation-status {
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--text-secondary, #8E8E93);
+}
+
+.translation-badge, .original-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  animation: fadeIn 0.3s ease;
+}
+
+.translation-badge {
+  background-color: rgba(0, 122, 255, 0.1);
+  color: var(--primary-color, #007AFF);
+}
+
+.original-badge {
+  background-color: rgba(142, 142, 147, 0.1);
+  color: var(--text-secondary, #8E8E93);
+}
+
+.translation-badge i, .original-badge i {
+  margin-right: 4px;
+  font-size: 11px;
+}
+
+.translation-toggle {
+  display: flex;
+  justify-content: center;
+  background-color: var(--background-secondary, #F2F2F7);
+  border-radius: 16px;
+  padding: 2px;
+  width: fit-content;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.toggle-button {
+  border: none;
+  background: transparent;
+  padding: 6px 16px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary, #8E8E93);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  min-width: 70px;
+  position: relative;
+  overflow: hidden;
+}
+
+.toggle-button.active {
+  background-color: white;
+  color: var(--primary-color, #007AFF);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-button.active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to right, transparent, rgba(0, 122, 255, 0.1), transparent);
+  animation: shimmer 1.5s infinite;
+}
+
+.toggle-button:active {
+  transform: scale(0.95);
+}
+
 .transcription-content {
   background-color: var(--background-secondary, #F2F2F7);
   border-radius: 10px;
@@ -221,6 +378,7 @@ const handleRetry = () => {
   max-height: 200px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  transition: all 0.3s ease;
 }
 
 .text-content {
@@ -228,6 +386,11 @@ const handleRetry = () => {
   line-height: 1.5;
   color: var(--text-primary, #000000);
   white-space: pre-wrap;
+  transition: opacity 0.2s ease;
+}
+
+.text-content.fade-in {
+  animation: fadeIn 0.5s ease;
 }
 
 .error-message {
@@ -297,6 +460,16 @@ const handleRetry = () => {
   }
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
 @media (max-width: 375px) {
   .transcription-card {
     padding: 14px;
@@ -308,6 +481,17 @@ const handleRetry = () => {
   
   .status-desc {
     font-size: 12px;
+  }
+  
+  .toggle-button {
+    padding: 5px 12px;
+    font-size: 12px;
+    min-width: 60px;
+  }
+  
+  .translation-badge, .original-badge {
+    font-size: 11px;
+    padding: 3px 6px;
   }
 }
 </style>

@@ -5,11 +5,73 @@ import { showToast } from 'vant';
 /**
  * 转录设置接口
  */
+/**
+ * 转录设置接口 - 前端参数
+ */
 export interface TranscriptionSettings {
-  sourceLanguage?: string;
-  translation?: string;
-  speaker?: string;
-  type?: string;
+  // 基本设置
+  type: 'offline' | 'realtime'; // 转录类型：离线或实时
+  
+  // 输入相关参数
+  input: {
+    sourceLanguage?: string; // 源语言，例如 'cn'、'en' 等
+    format?: string; // 音频格式，例如 'mp3'、'wav'、'pcm' 等
+    sampleRate?: number; // 采样率，例如 16000
+    taskKey?: string; // 任务标识符，可选
+  };
+
+  parameters?: {
+    // 音视频或音频流转码转换模块
+    transcoding?: {
+      targetAudioFormat?: string; //是否将原始音视频文件或音频流转成 mp3 格式保存，目前仅支持设置为 mp3 格式
+      targetVideoFormat?: string; //是否将原始视频文件转成 mp4 格式保存，目前仅支持设置为 mp4 格式。
+      videoThumbnailEnabled?: boolean; //是否生成视频的缩略图。
+      spectrumEnabled?: boolean; //是否生成视频的频谱图。
+    },
+    // 语音转写控制参数。
+    transcription?: {
+      diarizationEnabled?: boolean; // 是否启用说话人分离
+      diarization?: {
+        speakerCount?: number; // 说话人数量 不设置： 不实用说话人角色区分 0 说话人结果为不定人数 2 说话人角色区分结果为2人
+      };
+      audioEventDetectionEnabled?: boolean; // 是否启用音频事件检测
+    };
+    
+    // 翻译功能控制参数。
+    translationEnabled?: boolean; // 是否启用翻译
+    translation?: {
+      targetLanguages?: string[]; // 翻译功能开启时目标语言列表，例如 ['en', 'ja'] 等
+    };
+
+    // 会议助手相关参数
+    meetingAssistanceEnabled?: boolean; // 是否启用会议助手
+    // 智能纪要功能控制参数，支持待办事项、关键词、重点内容的算法处理。
+    meetingAssistance?: {
+      type: string[]; // 会议助手类型，例如 ['Actions', 'KeyInformation'] Actions：待办事项 KeyInformation：关键信息处理，含关键词、重点内容等
+    };
+    
+    // 摘要功能控制参数。
+    summarizationEnabled?: boolean; // 是否启用摘要
+    summarization?: {
+      types?: string[]; // 摘要类型，Paragraph：全文摘要，Conversational：发言人总结摘要，QuestionsAnswering：问答回顾摘要
+    };
+
+    // PPT提取相关参数
+    pptExtractionEnabled?: boolean; // 是否启用PPT提取
+    
+    // 其他高级功能
+    autoChaptersEnabled?: boolean; // 是否启用章节速览
+    textPolishEnabled?: boolean; // 是否启用口语书面化
+  };
+}
+
+/**
+ * 转录任务响应接口
+ */
+export interface TranscriptionResponse {
+  taskId: string; // 任务ID
+  taskKey?: string; // 任务标识符
+  taskStatus: string; // 任务状态
 }
 
 /**
@@ -22,6 +84,7 @@ export default function useAudioTranscription() {
   const transcriptionComplete = ref(false);
   const transcriptionProgress = ref(0);
   const transcriptionText = ref('');
+  const translationText = ref(''); // 新增：存储翻译文本
   const transcriptionError = ref('');
   const currentTaskId = ref('');
   
@@ -51,10 +114,13 @@ export default function useAudioTranscription() {
       transcribing.value = true;
       transcriptionProgress.value = 10; // 初始进度
       
+      console.log('开始转录，文件:', settings);
       // 默认设置
       const defaultSettings: TranscriptionSettings = {
-        sourceLanguage: 'cn',
-        type: 'offline'
+        type: 'offline',
+        input: {
+          sourceLanguage: 'cn'
+        }
       };
       
       // 合并设置
@@ -106,7 +172,8 @@ export default function useAudioTranscription() {
         console.log('轮询任务状态:', taskInfo);
         
         // 更新进度
-        if (taskInfo.status === TingwuTaskStatus.SUCCESS || taskInfo.status === TingwuTaskStatus.COMPLETED) {
+        if (taskInfo.status === TingwuTaskStatus.COMPLETED) {
+          console.log('任务已完成，停止轮询');
           transcriptionProgress.value = 100;
           transcriptionComplete.value = true;
           transcribing.value = false;
@@ -120,6 +187,7 @@ export default function useAudioTranscription() {
           clearInterval(pollingTimer);
           pollingTimer = null;
         } else if (taskInfo.status === TingwuTaskStatus.FAILED) {
+          console.log('任务失败，停止轮询');
           transcriptionError.value = taskInfo.errorMessage || '转录失败';
           transcribing.value = false;
           
@@ -132,6 +200,7 @@ export default function useAudioTranscription() {
             message: '转录失败: ' + transcriptionError.value
           });
         } else {
+          console.log('任务仍在进行中，继续轮询');
           // 任务仍在进行中，更新进度
           transcriptionProgress.value = Math.min(90, transcriptionProgress.value + 5);
         }
@@ -158,11 +227,14 @@ export default function useAudioTranscription() {
   const extractTranscriptionText = async (result: any) => {
     try {
       // 处理通义听悟返回的JSON URL
+      console.log('extractTranscriptionText 原始结果:', result);
+      
+      // 处理转录文本
       if (result.transcription && typeof result.transcription === 'string' && result.transcription.startsWith('http')) {
         try {
           // 获取JSON文件内容
           const jsonData = await tingwuService.fetchTranscriptionJson(result.transcription);
-          console.log('获取到的JSON数据:', jsonData);
+          console.log('获取到的转录JSON数据:', jsonData);
           
           // 处理通义听悟特定的转录结果格式
           if (jsonData.Transcription && jsonData.Transcription.Paragraphs && Array.isArray(jsonData.Transcription.Paragraphs)) {
@@ -246,6 +318,100 @@ export default function useAudioTranscription() {
       } else {
         transcriptionText.value = JSON.stringify(result);
       }
+      
+      // 处理翻译文本 - 新增部分
+      if (result.translation && typeof result.translation === 'string' && result.translation.startsWith('http')) {
+        try {
+          console.log('检测到翻译URL，开始获取翻译内容:', result.translation);
+          // 获取翻译JSON文件内容
+          const translationData = await tingwuService.fetchTranscriptionJson(result.translation);
+          console.log('获取到的翻译JSON数据:', translationData);
+          
+          // 处理通义听悟特定的翻译结果格式
+          if (translationData.Translation && translationData.Translation.Paragraphs && Array.isArray(translationData.Translation.Paragraphs)) {
+            console.log('检测到通义听悟特定的翻译结果格式');
+            
+            // 处理英文翻译格式 - 每个段落包含Sentences数组
+            const paragraphs = translationData.Translation.Paragraphs.map((paragraph: any) => {
+              // 优先处理Sentences格式（英文翻译常见格式）
+              if (paragraph.Sentences && Array.isArray(paragraph.Sentences)) {
+                return paragraph.Sentences.map((sentence: any) => sentence.Text || '').join(' ');
+              }
+              // 如果没有Sentences，尝试处理Words格式（中文转写常见格式）
+              else if (paragraph.Words && Array.isArray(paragraph.Words)) {
+                return paragraph.Words.map((word: any) => word.Text).join('');
+              }
+              return '';
+            });
+            
+            // 将所有段落组合成完整文本
+            translationText.value = paragraphs.join('\n\n').trim();
+            console.log('翻译解析完成，文本长度:', translationText.value.length);
+            console.log('翻译内容:', translationText.value);
+          } 
+          // 如果是嵌套在data属性中
+          else if (translationData.data && translationData.data.Translation && translationData.data.Translation.Paragraphs) {
+            console.log('检测到嵌套在data属性中的通义听悟翻译结果');
+            const paragraphs = translationData.data.Translation.Paragraphs.map((paragraph: any) => {
+              // 优先处理Sentences格式（英文翻译常见格式）
+              if (paragraph.Sentences && Array.isArray(paragraph.Sentences)) {
+                return paragraph.Sentences.map((sentence: any) => sentence.Text || '').join(' ');
+              }
+              // 如果没有Sentences，尝试处理Words格式（中文转写常见格式）
+              else if (paragraph.Words && Array.isArray(paragraph.Words)) {
+                return paragraph.Words.map((word: any) => word.Text).join('');
+              }
+              return '';
+            });
+            
+            translationText.value = paragraphs.join('\n\n').trim();
+            console.log('翻译解析完成，文本长度:', translationText.value.length);
+            console.log('翻译内容:', translationText.value);
+          }
+          // 其他格式的处理
+          else if (translationData.sentences && Array.isArray(translationData.sentences)) {
+            // 合并所有句子
+            translationText.value = translationData.sentences
+              .map((sentence: any) => sentence.text)
+              .join(' ')
+              .trim();
+            console.log('翻译解析完成(sentences格式):', translationText.value);
+          } else if (translationData.text) {
+            translationText.value = translationData.text;
+            console.log('翻译解析完成(text格式):', translationText.value);
+          } else if (translationData.translation) {
+            translationText.value = translationData.translation;
+            console.log('翻译解析完成(translation格式):', translationText.value);
+          } else if (translationData.Data && translationData.Data.Result && translationData.Data.Result.Text) {
+            translationText.value = translationData.Data.Result.Text;
+            console.log('翻译解析完成(Data.Result.Text格式):', translationText.value);
+          } else {
+            // 尝试找到文本字段
+            const textField = findTextFieldInObject(translationData);
+            if (textField) {
+              translationText.value = textField;
+              console.log('翻译解析完成(通过findTextFieldInObject):', translationText.value);
+            } else {
+              console.log('无法解析翻译结果，返回JSON字符串');
+              translationText.value = JSON.stringify(translationData);
+            }
+          }
+          
+          // 如果成功获取到翻译，显示提示
+          if (translationText.value) {
+            console.log('翻译获取成功');
+            showToast({
+              type: 'success',
+              message: '翻译完成'
+            });
+          }
+        } catch (jsonError: any) {
+          console.error('获取翻译JSON文件内容失败:', jsonError);
+          console.log('翻译获取失败，但不影响转录结果展示');
+        }
+      } else {
+        console.log('未检测到翻译URL或翻译数据');
+      }
     } catch (error: any) {
       console.error('提取转写文本失败:', error);
       transcriptionError.value = '无法解析转写结果';
@@ -315,6 +481,7 @@ export default function useAudioTranscription() {
     transcriptionComplete.value = false;
     transcriptionProgress.value = 0;
     transcriptionText.value = '';
+    translationText.value = ''; // 重置翻译文本
     transcriptionError.value = '';
     currentTaskId.value = '';
     
@@ -342,6 +509,7 @@ export default function useAudioTranscription() {
     transcriptionComplete,
     transcriptionProgress,
     transcriptionText,
+    translationText, // 导出翻译文本
     transcriptionError,
     currentTaskId,
     statusText,

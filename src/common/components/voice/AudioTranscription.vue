@@ -254,14 +254,14 @@ const startPolling = (taskId: string) => {
       if (currentTask.value && currentTask.value.taskId === taskId) {
         currentTask.value = {
           ...currentTask.value,
-          status: taskInfo.status === TingwuTaskStatus.SUCCESS || taskInfo.status === TingwuTaskStatus.COMPLETED ? 'SUCCEEDED' :
+          status: taskInfo.status === TingwuTaskStatus.COMPLETED ? 'SUCCEEDED' :
                  taskInfo.status === TingwuTaskStatus.FAILED ? 'FAILED' : 'RUNNING',
           progress: 0.5, // 由于API没有提供进度信息，设置一个默认值
           error: taskInfo.errorMessage
         };
 
         // 如果任务成功，提取转写结果
-        if ((taskInfo.status === TingwuTaskStatus.SUCCESS || taskInfo.status === TingwuTaskStatus.COMPLETED) && taskInfo.result) {
+        if (taskInfo.status === TingwuTaskStatus.COMPLETED && taskInfo.result) {
           extractTranscriptionText(taskInfo.result);
 
           // 停止轮询
