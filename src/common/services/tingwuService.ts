@@ -84,44 +84,37 @@ export async function uploadAndTranscribe(
   options?: TranscriptionSettings
 ): Promise<{taskId: string, fileUrl: string}> {
   try {
-    const formData = new FormData();
-    formData.append('audio', file);
-
-    // 添加转录选项
-    if (options?.input?.sourceLanguage) {
-      formData.append('sourceLanguage', options.input.sourceLanguage);
-    }
-
-    if (options?.type) {
-      formData.append('type', options.type);
-    }
-
-    // 需要把整个options 加进来
-    if (options?.input) {
-      formData.append('input', JSON.stringify(options.input));
-    }
-
-    if(options?.parameters) {
-      formData.append('parameters', JSON.stringify(options.parameters));
-    }
-
+    // 1. 先上传文件
+    console.log('开始上传文件...');
+    const fileUrl = await uploadAudioFile(file);
+    console.log('文件上传成功，fileUrl:', fileUrl);
+    
+    // 2. 创建转录任务
+    console.log('开始创建转录任务...');
+    const taskOptions = {
+      type: options?.type || 'offline',
+      input: {
+        ...(options?.input || {}),
+        fileUrl,
+        sourceLanguage: options?.input?.sourceLanguage || 'cn'
+      },
+      parameters: options?.parameters || {}
+    };
+    
     const response = await request<ApiResponse>({
-      url: '/api/v1/tingwu/upload-and-transcribe',
+      url: '/api/v1/tingwu/tasks',
       method: 'post',
-      data: formData,
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
+      data: taskOptions
     });
-
+    
     if (response?.data?.data) {
       const result = response.data.data;
       return {
         taskId: result.taskId,
-        fileUrl: result.fileUrl
+        fileUrl
       };
     } else {
-      throw new Error('上传并转录音频失败: 无效的响应格式');
+      throw new Error('创建转录任务失败: 无效的响应格式');
     }
   } catch (error: any) {
     console.error('上传并转录音频失败:', error.message);
@@ -138,22 +131,26 @@ export async function uploadAndTranscribe(
  */
 export async function createTingwuTask(fileUrl: string, taskKey: string, sourceLanguage: string = 'cn'): Promise<{taskId: string}> {
   try {
+    const taskOptions = {
+      type: 'offline',
+      input: {
+        fileUrl,
+        sourceLanguage,
+        taskKey
+      },
+      parameters: {}
+    };
+    
     const response = await request<ApiResponse>({
       url: '/api/v1/tingwu/tasks',
       method: 'post',
-      data: {
-        fileUrl,
-        taskKey,
-        sourceLanguage,
-        appKey: TINGWU_APP_KEY,
-        type: 'offline'
-      }
+      data: taskOptions
     });
-
-    if (response?.data?.data?.TaskId) {
-      return { taskId: response.data.data.TaskId };
-    } else if (response?.data?.TaskId) {
-      return { taskId: response.data.TaskId };
+    
+    if (response?.data?.data?.taskId) {
+      return { taskId: response.data.data.taskId };
+    } else if (response?.data?.data) {
+      return { taskId: response.data.data };
     } else {
       throw new Error('创建听悟任务失败: 无效的响应格式');
     }
@@ -173,9 +170,6 @@ export async function getTingwuTaskInfo(taskId: string): Promise<TingwuTaskInfo>
     const response = await request<ApiResponse>({
       url: `/api/v1/tingwu/tasks/${taskId}`,
       method: 'get',
-      params: {
-        appKey: TINGWU_APP_KEY
-      }
     });
 
     let taskInfo: any = null;

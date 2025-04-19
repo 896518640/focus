@@ -59,7 +59,6 @@ export async function createTingwuTask(fileUrl: string, taskKey: string, sourceL
         fileUrl,
         taskKey,
         sourceLanguage,
-        appKey: TINGWU_APP_KEY,
         type: 'offline' // 设置任务类型为离线转写
       }
     });
@@ -100,7 +99,6 @@ export async function createTingwuTaskWithOSS(
         ossBucket,
         name,
         vocabularyId,
-        appKey: TINGWU_APP_KEY,
         type: 'offline' // 设置任务类型为离线转写
       }
     });
@@ -128,9 +126,6 @@ export async function getTingwuTaskInfo(taskId: string): Promise<TingwuTaskInfo>
     const response = await request<ApiResponse>({
       url: `/api/v1/tingwu/tasks/${taskId}`,
       method: 'get',
-      params: {
-        appKey: TINGWU_APP_KEY
-      }
     });
     
     // 提取任务信息数据
@@ -223,7 +218,7 @@ export async function uploadAndTranscribe(
     }
     
     const response = await request<ApiResponse>({
-      url: '/api/v1/tingwu/upload-and-transcribe',
+      url: '/api/v1/tingwu/tasks',
       method: 'post',
       data: formData,
       headers: {
