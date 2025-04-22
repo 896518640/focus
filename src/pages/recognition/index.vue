@@ -63,7 +63,7 @@
     </div>
     
     <!-- 识别结果区域 -->
-    <div class="transcript-container animate__animated animate__fadeIn" style="animation-delay: 0.3s;" v-if="recognizedText || translatedText">
+    <div class="transcript-container animate__animated animate__fadeIn" style="animation-delay: 0.3s;" v-if="transcriptSegments.length > 0">
       <div class="transcript-header">
         <div class="transcript-title">转录内容</div>
         <div class="transcript-actions">
@@ -79,16 +79,16 @@
         </div>
       </div>
       <div class="transcript-content">
-        <div class="transcript-segment">
-          <div class="segment-time">{{ formatTime(recordingTime) }}</div>
-          <div class="source-text">{{ recognizedText }}</div>
+        <div v-for="(segment, index) in transcriptSegments" :key="index" class="transcript-segment">
+          <div class="segment-time">{{ formatTime(segment.timestamp) }}</div>
+          <div class="source-text">{{ segment.text }}</div>
           <div class="divider"></div>
-          <div class="translated-text">{{ translatedText }}</div>
+          <div class="translated-text">{{ segment.translation }}</div>
           <div class="segment-actions">
-            <button class="segment-action-button" @click="copySegment">
+            <button class="segment-action-button" @click="copySegment(segment)">
               <i class="far fa-copy"></i> 复制
             </button>
-            <button class="segment-action-button" @click="speakSegment">
+            <button class="segment-action-button" @click="speakSegment(segment)">
               <i class="fas fa-volume-up"></i> 朗读
             </button>
           </div>
@@ -160,9 +160,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { showToast } from 'vant';
+import axios from 'axios';
 
 // 声明WebKit AudioContext接口
 declare global {
@@ -181,13 +182,34 @@ const showTargetLanguagePopup = ref(false);
 const languageOptions = ['英语', '中文', '日语', '韩语', '法语', '德语', '西班牙语', '俄语'];
 const isRotating = ref(false);
 
+// 映射显示语言到API语言代码
+const languageCodeMap = {
+  '英语': 'en',
+  '中文': 'cn',
+  '日语': 'ja',
+  '韩语': 'ko',
+  '法语': 'fr',
+  '德语': 'de',
+  '俄语': 'ru',
+  '西班牙语': 'es'
+};
+
 // 录音状态
 const isRecording = ref(false);
 const recordingTime = ref(0);
-const recognizedText = ref('');
-const translatedText = ref('');
-const longPressTimer = ref<number | null>(null);
 const isLongPress = ref(false);
+const longPressTimer = ref<ReturnType<typeof setTimeout> | null>(null);
+
+// 存储所有识别的句子段落
+interface TranscriptSegment {
+  index: number;
+  text: string;
+  translation: string;
+  timestamp: number;
+}
+const transcriptSegments = ref<TranscriptSegment[]>([]);
+// 当前正在处理的句子索引
+const currentSegmentIndex = ref<number | null>(null);
 
 // 音频可视化相关
 const audioContext = ref<AudioContext | null>(null);
@@ -208,6 +230,71 @@ const downloadSuccess = ref(false);
 let timer: number | null = null;
 let visualizerTimer: number | null = null;
 
+// WebSocket相关
+const socket = ref<WebSocket | null>(null);
+const socketConnected = ref(false);
+const currentTaskId = ref<string | null>(null);
+const audioProcessor = ref<ScriptProcessorNode | null>(null);
+const audioChunks = ref<Blob[]>([]);
+const processorBufferSize = 1024; // 减小缓冲区大小为1024
+let pingInterval: ReturnType<typeof setInterval> | null = null; // 心跳定时器
+const audioData = ref({
+  size: 0,                  // 录音文件长度
+  buffer: [] as Float32Array[], // 录音缓存
+  inputSampleRate: 48000,   // 输入采样率; 一般为本机浏览器默认采样率
+  inputSampleBits: 16,      // 输入采样数位
+  outputSampleRate: 16000,  // 输出采样率
+  outputSampleBits: 16,     // 输出采样位
+  clear() {
+    this.buffer = [];
+    this.size = 0;
+  },
+  input(data: Float32Array) {
+    this.buffer.push(new Float32Array(data));
+    this.size += data.length;
+  },
+  compress() {
+    // 对数据进行合并压缩
+    const data = new Float32Array(this.size);
+    let offset = 0;
+    for (let i = 0; i < this.buffer.length; i++) {
+      data.set(this.buffer[i], offset);
+      offset += this.buffer[i].length;
+    }
+
+    const compression = parseInt(
+      (this.inputSampleRate / this.outputSampleRate).toString()
+    );
+    const length = data.length / compression;
+    const result = new Float32Array(length);
+    let index = 0, j = 0;
+    while (index < length) {
+      result[index] = data[j];
+      j += compression;
+      index++;
+    }
+    return result;
+  },
+  encodePCM() {
+    const sampleRate = Math.min(
+      this.inputSampleRate,
+      this.outputSampleRate
+    );
+    const sampleBits = Math.min(this.inputSampleBits, this.outputSampleBits);
+    const bytes = this.compress();
+    const dataLength = bytes.length * (sampleBits / 8);
+    const buffer = new ArrayBuffer(dataLength);
+    const data = new DataView(buffer);
+    let offset = 0;
+    for (let i = 0; i < bytes.length; i++, offset += 2) {
+      const s = Math.max(-1, Math.min(1, bytes[i]));
+      data.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    }
+    // 直接返回ArrayBuffer而不是Blob，这样可以使用byteLength属性
+    return buffer;
+  }
+});
+
 // 页面加载动画
 onMounted(() => {
   // 检查浏览器对AudioContext的支持
@@ -227,6 +314,42 @@ onMounted(() => {
   animateCSS.href = 'https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css';
   document.head.appendChild(animateCSS);
 });
+
+// 组件卸载时清理资源
+onUnmounted(() => {
+  cleanupResources();
+  closeWebSocketConnection();
+});
+
+// 清理所有资源
+const cleanupResources = () => {
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+  }
+  
+  if (visualizerTimer) {
+    cancelAnimationFrame(visualizerTimer);
+    visualizerTimer = null;
+  }
+  
+  if (waveformInterval) {
+    clearInterval(waveformInterval);
+    waveformInterval = null;
+  }
+  
+  if (audioStream.value) {
+    audioStream.value.getTracks().forEach((track: MediaStreamTrack) => track.stop());
+  }
+  
+  if (audioContext.value && audioContext.value.state !== 'closed') {
+    audioContext.value.close();
+  }
+  
+  if (audioProcessor.value) {
+    audioProcessor.value.disconnect();
+  }
+};
 
 // 返回上一页
 const goBack = () => {
@@ -308,16 +431,14 @@ const onTargetLanguageConfirm = (value: string) => {
 
 // 处理长按开始
 const handleTouchStart = () => {
-  // 长按开始录音
-  longPressTimer.value = window.setTimeout(() => {
+  if (longPressTimer.value) {
+    clearTimeout(longPressTimer.value);
+  }
+  
+  longPressTimer.value = setTimeout(() => {
     isLongPress.value = true;
     startRecording();
-    
-    // 添加触觉反馈 (如果设备支持)
-    if (navigator.vibrate) {
-      navigator.vibrate(50);
-    }
-  }, 500);
+  }, 500) as ReturnType<typeof setTimeout>;
 };
 
 // 处理长按结束
@@ -354,8 +475,8 @@ const toggleRecording = () => {
   }
 };
 
-// 开始录音
-const startRecording = async () => {
+// 开始音频流
+const startAudioStream = async () => {
   try {
     // 请求麦克风权限
     audioStream.value = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -364,29 +485,553 @@ const startRecording = async () => {
     audioContext.value = new (window.AudioContext || window.webkitAudioContext)();
     analyser.value = audioContext.value.createAnalyser();
     const source = audioContext.value.createMediaStreamSource(audioStream.value);
+    
+    // 创建音频处理节点 - 使用较小的缓冲区减少每帧数据大小
+    audioProcessor.value = audioContext.value.createScriptProcessor(processorBufferSize, 1, 1); // 减小缓冲区大小为1024
+    
+    // 连接音频节点
     source.connect(analyser.value);
+    analyser.value.connect(audioProcessor.value);
+    audioProcessor.value.connect(audioContext.value.destination);
     
-    // 配置分析器
+    // 获取分析器数据
     analyser.value.fftSize = 256;
-    const bufferLength = analyser.value.frequencyBinCount;
-    dataArray.value = new Uint8Array(bufferLength);
+    dataArray.value = new Uint8Array(analyser.value.frequencyBinCount);
     
-    // 创建媒体录制器
-    mediaRecorder.value = new MediaRecorder(audioStream.value);
+    // 重置音频数据对象
+    audioData.value.clear();
+    audioData.value.inputSampleRate = audioContext.value.sampleRate;
+    
+    // 处理音频数据
+    audioProcessor.value.onaudioprocess = (e) => {
+      if (!isRecording.value) return;
+      
+      // 获取音频数据
+      const inputData = e.inputBuffer.getChannelData(0);
+      
+      // 处理音频数据
+      audioData.value.input(inputData);
+      
+      // 分块发送到WebSocket，确保每次不超过16KB (远小于65KB限制)
+      if (socket.value && socket.value.readyState === WebSocket.OPEN) {
+        const audioBlob = audioData.value.encodePCM();
+        
+        // 对于ArrayBuffer类型，使用byteLength属性
+        if (audioBlob.byteLength > 16384) { // 16KB
+          const chunks = Math.ceil(audioBlob.byteLength / 16384);
+          for (let i = 0; i < chunks; i++) {
+            const start = i * 16384;
+            const end = Math.min(start + 16384, audioBlob.byteLength);
+            const chunk = audioBlob.slice(start, end);
+            socket.value.send(chunk);
+          }
+          console.log(`音频数据分为${chunks}块发送，总大小: ${audioBlob.byteLength}字节`);
+        } else {
+          socket.value.send(audioBlob);
+        }
+        
+        // 发送后清空缓冲区，避免缓冲区数据累积
+        audioData.value.clear();
+      }
+    };
+  } catch (error) {
+    console.error('获取麦克风权限失败:', error);
+    showToast({
+      message: '无法访问麦克风，请确保已授予权限',
+      icon: 'fail',
+      position: 'bottom'
+    });
+  }
+};
+
+// 创建实时翻译任务
+const createRealtimeTask = async () => {
+  try {
+    // 获取源语言和目标语言代码
+    const sourceCode = languageCodeMap[sourceLanguage.value as keyof typeof languageCodeMap] || 'en';
+    const targetCode = languageCodeMap[targetLanguage.value as keyof typeof languageCodeMap] || 'cn';
+    
+    // 创建任务请求参数
+    const taskParams = {
+      sourceLanguage: sourceCode,
+      format: 'pcm', // PCM格式
+      sampleRate: '16000', // 16kHz采样率
+      translationEnabled: true,
+      targetLanguages: [targetCode],
+      diarizationEnabled: false
+    };
+    
+    // 发送创建任务请求
+    console.log('创建实时翻译任务参数:', taskParams);
+    const response = await axios.post('/api/v1/tingwu/realtime/start', taskParams);
+    
+    if (response.data.success) {
+      console.log('实时翻译任务已创建:', response.data);
+      currentTaskId.value = response.data.data.taskId;
+      
+      // 使用返回的WebSocket URL建立连接
+      if (response.data.data.meetingJoinUrl) {
+        setupWebSocketConnection(response.data.data.meetingJoinUrl);
+        return true;
+      } else {
+        throw new Error('服务未返回WebSocket连接URL');
+      }
+    } else {
+      throw new Error(response.data.message || '创建实时翻译任务失败');
+    }
+  } catch (error: any) {
+    console.error('创建实时翻译任务失败:', error);
+    showToast({
+      message: `创建任务失败: ${error.message || '未知错误'}`,
+      icon: 'fail',
+      position: 'bottom'
+    });
+    return false;
+  }
+};
+
+// 发送开始转写命令
+const sendStartTranscriptionMessage = () => {
+  if (!socket.value || socket.value.readyState !== WebSocket.OPEN) return;
+  
+  const startParams = {
+    header: {
+      name: "StartTranscription",
+      namespace: "SpeechTranscriber",
+      appkey: languageCodeMap[sourceLanguage.value as keyof typeof languageCodeMap] || 'en'
+    },
+    payload: {
+      format: "pcm",
+      sample_rate: 16000,
+      enable_intermediate_result: true,
+      enable_punctuation_prediction: true,
+      enable_inverse_text_normalization: true,
+      // 添加心跳配置，以免断开连接
+      max_speaking_length: 60000,
+      speech_timeout: 60000,
+      ping_interval: 8000, // 添加心跳间隔参数
+      ping_timeout: 20000  // 添加心跳超时参数
+    }
+  };
+  
+  socket.value.send(JSON.stringify(startParams));
+  console.log('已发送开始转写命令:', startParams);
+};
+
+// 发送停止转写命令
+const sendStopTranscriptionMessage = () => {
+  if (!socket.value || socket.value.readyState !== WebSocket.OPEN) return;
+  
+  const stopParams = {
+    header: {
+      name: "StopTranscription",
+      namespace: "SpeechTranscriber",
+    },
+    payload: {},
+  };
+  
+  socket.value.send(JSON.stringify(stopParams));
+  console.log('已发送停止转写命令');
+  
+  // 延迟关闭连接
+  setTimeout(() => {
+    if (socket.value) {
+      socket.value.close();
+    }
+  }, 3000);
+};
+
+// 建立WebSocket连接
+const setupWebSocketConnection = (url: string) => {
+  // 关闭现有连接
+  closeWebSocketConnection();
+  
+  try {
+    console.log('连接WebSocket URL:', url);
+    
+    // 创建新的WebSocket连接
+    socket.value = new WebSocket(url);
+    socket.value.binaryType = "arraybuffer"; // 设置为ArrayBuffer类型，按照官方要求
+    
+    // 监听WebSocket事件
+    socket.value.onopen = () => {
+      console.log('WebSocket连接已建立');
+      socketConnected.value = true;
+      
+      // 开始音频流
+      startAudioStream();
+      
+      // 发送开始转写请求
+      sendStartTranscriptionMessage();
+      
+      // 设置心跳机制，每8秒发送一次ping消息
+      if (pingInterval) clearInterval(pingInterval);
+      pingInterval = setInterval(() => {
+        if (socket.value && socket.value.readyState === WebSocket.OPEN) {
+          // 发送ping消息
+          const pingMessage = {
+            header: {
+              name: "Ping",
+              namespace: "SpeechTranscriber"
+            },
+            payload: {}
+          };
+          socket.value.send(JSON.stringify(pingMessage));
+          console.log('发送Ping心跳消息...');
+        }
+      }, 8000);
+      
+      // 显示连接成功提示
+      showToast({
+        message: '实时转录连接已建立',
+        icon: 'success',
+        position: 'bottom'
+      });
+    };
+    
+    socket.value.onmessage = (event) => {
+      handleSocketMessage(event);
+    };
+    
+    socket.value.onerror = (error) => {
+      console.error('WebSocket错误:', error);
+      showToast({
+        message: 'WebSocket连接出错',
+        icon: 'fail',
+        position: 'bottom'
+      });
+      socketConnected.value = false;
+    };
+    
+    socket.value.onclose = (event) => {
+      console.log('WebSocket连接已关闭，代码:', event.code, '原因:', event.reason);
+      socketConnected.value = false;
+      // 清除心跳
+      if (pingInterval) {
+        clearInterval(pingInterval);
+        pingInterval = null;
+      }
+      
+      // 如果是在录音中意外断开，尝试重新连接
+      if (isRecording.value) {
+        console.log('录音过程中WebSocket断开，尝试重新连接...');
+        showToast({
+          message: '连接中断，正在重新连接...',
+          icon: 'loading',
+          position: 'bottom',
+          duration: 0
+        });
+        
+        // 延迟一点时间尝试重新创建任务
+        setTimeout(() => {
+          createRealtimeTask().then(success => {
+            if (success) {
+              showToast({
+                message: '已重新连接',
+                icon: 'success',
+                position: 'bottom'
+              });
+            } else {
+              // 如果重连失败，停止录音
+              stopRecording();
+              showToast({
+                message: '重新连接失败，已停止录音',
+                icon: 'fail',
+                position: 'bottom'
+              });
+            }
+          });
+        }, 2000);
+      }
+    };
+  } catch (error) {
+    console.error('创建WebSocket连接失败:', error);
+    showToast({
+      message: `WebSocket连接失败: ${(error as Error).message || '未知错误'}`,
+      icon: 'fail',
+      position: 'bottom'
+    });
+  }
+};
+
+// 关闭WebSocket连接
+const closeWebSocketConnection = () => {
+  // 清除心跳定时器
+  if (pingInterval) {
+    clearInterval(pingInterval);
+    pingInterval = null;
+  }
+  
+  if (socket.value) {
+    if (socket.value.readyState === WebSocket.OPEN) {
+      // 尝试发送停止转写命令
+      try {
+        sendStopTranscriptionMessage();
+      } catch (error) {
+        console.error('发送停止转写命令失败:', error);
+      }
+    }
+    
+    // 关闭WebSocket连接
+    try {
+      socket.value.close();
+    } catch (error) {
+      console.error('关闭WebSocket连接失败:', error);
+    }
+    
+    socket.value = null;
+    socketConnected.value = false;
+    console.log('WebSocket连接已关闭');
+  }
+};
+
+// 停止实时翻译任务
+const stopRealtimeTask = async () => {
+  if (!currentTaskId.value) return;
+  
+  try {
+    // 发送停止转写命令
+    sendStopTranscriptionMessage();
+    
+    // 关闭WebSocket连接
+    closeWebSocketConnection();
+    
+    // 通知后端停止任务
+    const response = await axios.post(`/api/v1/tingwu/realtime/${currentTaskId.value}/stop`);
+    
+    if (response.data.success) {
+      console.log('实时翻译任务已停止:', response.data);
+    } else {
+      console.warn('停止实时翻译任务失败:', response.data.message);
+    }
+  } catch (error) {
+    console.error('停止实时翻译任务出错:', error);
+  } finally {
+    // 重置任务ID
+    currentTaskId.value = null;
+  }
+};
+
+// 处理WebSocket消息
+const handleSocketMessage = (event: MessageEvent) => {
+  try {
+    // 处理字符串消息
+    if (typeof event.data === "string") {
+      console.log('收到原始WebSocket消息:', event.data);
+      
+      // 修复多个JSON对象连接在一起的问题
+      // 尝试拆分多个JSON对象（可能连在一起没有分隔符）
+      let dataString = event.data;
+      let startIndex = 0;
+      let jsonDepth = 0;
+      let inString = false;
+      let escapeNext = false;
+      
+      for (let i = 0; i < dataString.length; i++) {
+        const char = dataString[i];
+        
+        // 处理字符串内的字符
+        if (inString) {
+          if (escapeNext) {
+            escapeNext = false;
+          } else if (char === '\\') {
+            escapeNext = true;
+          } else if (char === '"') {
+            inString = false;
+          }
+          continue;
+        }
+        
+        // 处理非字符串内的字符
+        if (char === '"') {
+          inString = true;
+        } else if (char === '{') {
+          jsonDepth++;
+        } else if (char === '}') {
+          jsonDepth--;
+          
+          // 如果找到了一个完整的JSON对象
+          if (jsonDepth === 0) {
+            try {
+              const jsonStr = dataString.substring(startIndex, i + 1);
+              const dataJson = JSON.parse(jsonStr);
+              console.log('解析出单个JSON消息:', dataJson);
+              
+              // 处理不同类型的消息
+              processWebSocketMessage(dataJson);
+              
+              // 更新下一个JSON开始的位置
+              startIndex = i + 1;
+            } catch (parseError) {
+              console.error('解析JSON片段失败:', parseError);
+            }
+          }
+        }
+      }
+      
+      return; // 使用新的解析方法后，不再使用原来的解析逻辑
+    }
+  } catch (error) {
+    console.error('解析WebSocket消息失败:', error);
+  }
+};
+
+// 处理单个WebSocket消息
+const processWebSocketMessage = (dataJson: any) => {
+  // 安全检查：确保dataJson和header存在
+  if (!dataJson || !dataJson.header) {
+    console.warn('收到无效WebSocket消息格式:', dataJson);
+    return;
+  }
+  
+  // 处理不同类型的消息
+  switch (dataJson.header.name) {
+    case "SentenceBegin": {
+      // 句子开始事件
+      if (dataJson.payload && typeof dataJson.payload.index !== 'undefined') {
+        console.log("句子", dataJson.payload.index, "开始");
+        // 创建新的段落
+        currentSegmentIndex.value = dataJson.payload.index;
+        // 检查是否已存在该索引的段落
+        const existingIndex = transcriptSegments.value.findIndex(s => s.index === dataJson.payload.index);
+        if (existingIndex === -1) {
+          // 添加新段落
+          transcriptSegments.value.push({
+            index: dataJson.payload.index,
+            text: '',
+            translation: '',
+            timestamp: recordingTime.value
+          });
+        }
+      }
+      break;
+    }
+    case "TranscriptionResultChanged": {
+      // 句中识别结果变化事件
+      if (dataJson.payload && dataJson.payload.result) {
+        const segmentIndex = dataJson.payload.index;
+        console.log(
+          "句子" + (segmentIndex || '未知') + "中间结果:",
+          dataJson.payload.result
+        );
+        
+        // 查找对应的段落
+        const existingIndex = transcriptSegments.value.findIndex(s => s.index === segmentIndex);
+        if (existingIndex !== -1) {
+          // 更新已存在的段落
+          transcriptSegments.value[existingIndex].text = dataJson.payload.result;
+        } else {
+          // 添加新段落
+          transcriptSegments.value.push({
+            index: segmentIndex,
+            text: dataJson.payload.result,
+            translation: '',
+            timestamp: recordingTime.value
+          });
+        }
+        currentSegmentIndex.value = segmentIndex;
+      }
+      break;
+    }
+    case "SentenceEnd": {
+      // 句子结束事件
+      if (dataJson.payload) {
+        const segmentIndex = dataJson.payload.index;
+        const finalResult = dataJson.payload.result + ((dataJson.payload.stash_result && dataJson.payload.stash_result.text) || "");
+        console.log("句子" + (segmentIndex || '未知') + "结束:", finalResult);
+        
+        // 查找对应的段落
+        const existingIndex = transcriptSegments.value.findIndex(s => s.index === segmentIndex);
+        if (existingIndex !== -1) {
+          // 更新已存在的段落
+          transcriptSegments.value[existingIndex].text = finalResult;
+        } else {
+          // 添加新段落
+          transcriptSegments.value.push({
+            index: segmentIndex,
+            text: finalResult,
+            translation: '',
+            timestamp: recordingTime.value
+          });
+        }
+      }
+      break;
+    }
+    case "ResultTranslated": {
+      // 识别结果翻译事件
+      if (dataJson.payload && dataJson.payload.translate_result) {
+        console.log(
+          "句子翻译结果",
+          JSON.stringify(dataJson.payload.translate_result)
+        );
+        
+        // 翻译结果中通常包含句子索引
+        if (dataJson.payload.translate_result.length > 0) {
+          const segmentIndex = dataJson.payload.index || (dataJson.payload.translate_result[0].index);
+          const translationText = dataJson.payload.translate_result[0]?.text;
+          
+          if (translationText) {
+            // 查找对应的段落
+            const existingIndex = transcriptSegments.value.findIndex(s => s.index === segmentIndex);
+            if (existingIndex !== -1) {
+              // 更新已存在的段落
+              transcriptSegments.value[existingIndex].translation = translationText;
+            } else if (segmentIndex !== undefined) {
+              // 添加新段落
+              transcriptSegments.value.push({
+                index: segmentIndex,
+                text: '',
+                translation: translationText,
+                timestamp: recordingTime.value
+              });
+            }
+          }
+        }
+      }
+      break;
+    }
+    case "TaskFailed": {
+      // 任务失败事件
+      console.error("任务失败:", dataJson.payload);
+      showToast({
+        message: `任务失败: ${(dataJson.payload && dataJson.payload.message) || '未知错误'}`,
+        icon: 'fail',
+        position: 'bottom'
+      });
+      break;
+    }
+    case "Pong": {
+      // 收到心跳响应
+      console.log("收到Pong心跳响应");
+      break;
+    }
+    default: {
+      // 未知消息类型，记录但不处理
+      console.log(`收到未处理的消息类型: ${dataJson.header.name}`, dataJson);
+    }
+  }
+};
+
+// 开始录音
+const startRecording = async () => {
+  try {
+    // 清空之前的转录内容
+    transcriptSegments.value = [];
+    
+    // 开始实时翻译任务
+    const taskCreated = await createRealtimeTask();
+    
+    if (!taskCreated) {
+      throw new Error('无法创建实时翻译任务');
+    }
     
     // 开始录制
-    mediaRecorder.value.start();
     isRecording.value = true;
     recordingTime.value = 0;
     
     // 启动计时器
     timer = window.setInterval(() => {
       recordingTime.value++;
-      
-      // 模拟实时语音识别
-      if (recordingTime.value % 3 === 0) {
-        simulateRecognition();
-      }
     }, 1000);
     
     // 启动可视化更新
@@ -416,38 +1061,17 @@ const startRecording = async () => {
 
 // 停止录音
 const stopRecording = () => {
-  if (mediaRecorder.value && isRecording.value) {
-    mediaRecorder.value.stop();
+  if (isRecording.value) {
     isRecording.value = false;
     
-    // 停止所有计时器
-    if (timer) {
-      clearInterval(timer);
-      timer = null;
-    }
+    // 停止实时翻译任务
+    stopRealtimeTask();
     
-    if (visualizerTimer) {
-      cancelAnimationFrame(visualizerTimer);
-      visualizerTimer = null;
-    }
-    
-    if (waveformInterval) {
-      clearInterval(waveformInterval);
-      waveformInterval = null;
-    }
-    
-    // 关闭音频流
-    if (audioStream.value) {
-      audioStream.value.getTracks().forEach((track: MediaStreamTrack) => track.stop());
-    }
-    
-    // 关闭音频上下文
-    if (audioContext.value) {
-      audioContext.value.close();
-    }
+    // 清理资源
+    cleanupResources();
     
     // 显示保存成功提示
-    if (recognizedText.value) {
+    if (transcriptSegments.value.length > 0) {
       showToast({
         message: '录音已保存',
         icon: 'success',
@@ -509,55 +1133,9 @@ const startFallbackWaveform = () => {
   }, 100);
 };
 
-// 模拟实时语音识别
-const simulateRecognition = () => {
-  const recognitionSamples = [
-    "今天我们讨论国际贸易理论的基础概念。",
-    "首先，我们需要理解比较优势原理。",
-    "这个理论由大卫·李嘉图提出，是国际贸易的基础。",
-    "比较优势指的是一个国家能够以相对较低的机会成本生产某种商品。",
-    "即使一个国家在所有商品的生产上都处于绝对劣势，它仍然可以从贸易中获益。"
-  ];
-  
-  const translationSamples = [
-    "Today we will discuss the basic concepts of international trade theory.",
-    "First, we need to understand the principle of comparative advantage.",
-    "This theory was proposed by David Ricardo and is the foundation of international trade.",
-    "Comparative advantage refers to a country's ability to produce a good at a relatively lower opportunity cost.",
-    "Even if a country has an absolute disadvantage in all goods, it can still benefit from trade."
-  ];
-  
-  const index = recordingTime.value % recognitionSamples.length;
-  
-  // 添加打字机效果
-  const newText = recognitionSamples[index];
-  const currentLength = recognizedText.value.length;
-  const targetLength = newText.length;
-  
-  if (currentLength < targetLength) {
-    // 逐字添加文本
-    let i = currentLength;
-    const typeInterval = setInterval(() => {
-      recognizedText.value = newText.substring(0, i + 1);
-      i++;
-      if (i >= targetLength) {
-        clearInterval(typeInterval);
-        
-        // 添加翻译文本的淡入效果
-        setTimeout(() => {
-          translatedText.value = translationSamples[index];
-        }, 300);
-      }
-    }, 50);
-  } else {
-    recognizedText.value = newText;
-    translatedText.value = translationSamples[index];
-  }
-};
-
 // 复制转录内容
 const copyTranscript = () => {
-  const textToCopy = `${recognizedText.value}\n\n${translatedText.value}`;
+  const textToCopy = transcriptSegments.value.map(segment => `${segment.text}\n\n${segment.translation}`).join('\n\n');
   navigator.clipboard.writeText(textToCopy).then(() => {
     // 显示复制成功状态
     copySuccess.value = true;
@@ -574,8 +1152,8 @@ const copyTranscript = () => {
 };
 
 // 复制当前段落
-const copySegment = () => {
-  const textToCopy = `${recognizedText.value}\n\n${translatedText.value}`;
+const copySegment = (segment: TranscriptSegment) => {
+  const textToCopy = `${segment.text}\n\n${segment.translation}`;
   navigator.clipboard.writeText(textToCopy).then(() => {
     showToast({
       message: '已复制当前段落',
@@ -586,11 +1164,11 @@ const copySegment = () => {
 };
 
 // 朗读当前段落
-const speakSegment = () => {
+const speakSegment = (segment: TranscriptSegment) => {
   if ('speechSynthesis' in window) {
     // 使用浏览器的语音合成API
-    const utterance = new SpeechSynthesisUtterance(translatedText.value);
-    utterance.lang = sourceLanguage.value === '中文' ? 'zh-CN' : 'en-US';
+    const utterance = new SpeechSynthesisUtterance(segment.translation);
+    utterance.lang = targetLanguage.value === '中文' ? 'zh-CN' : 'en-US';
     window.speechSynthesis.speak(utterance);
     
     showToast({
@@ -612,7 +1190,7 @@ const downloadTranscript = () => {
   downloadLoading.value = true;
   
   setTimeout(() => {
-    const textToDownload = `${recognizedText.value}\n\n${translatedText.value}`;
+    const textToDownload = transcriptSegments.value.map(segment => `${segment.text}\n\n${segment.translation}`).join('\n\n');
     const blob = new Blob([textToDownload], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -645,8 +1223,7 @@ const clearTranscript = () => {
   if (content) {
     content.classList.add('animate__animated', 'animate__fadeOut');
     setTimeout(() => {
-      recognizedText.value = '';
-      translatedText.value = '';
+      transcriptSegments.value = [];
       content.classList.remove('animate__animated', 'animate__fadeOut');
       
       // 添加空状态淡入动画
@@ -661,8 +1238,7 @@ const clearTranscript = () => {
       }, 100);
     }, 300);
   } else {
-    recognizedText.value = '';
-    translatedText.value = '';
+    transcriptSegments.value = [];
   }
   
   showToast({
@@ -678,29 +1254,6 @@ const formatTime = (seconds: number): string => {
   const secs = seconds % 60;
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
-
-// 组件卸载时清理资源
-onUnmounted(() => {
-  if (timer) {
-    clearInterval(timer);
-  }
-  
-  if (visualizerTimer) {
-    cancelAnimationFrame(visualizerTimer);
-  }
-  
-  if (waveformInterval) {
-    clearInterval(waveformInterval);
-  }
-  
-  if (audioStream.value) {
-    audioStream.value.getTracks().forEach((track: MediaStreamTrack) => track.stop());
-  }
-  
-  if (audioContext.value) {
-    audioContext.value.close();
-  }
-});
 </script>
 
 <style scoped>
