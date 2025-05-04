@@ -8,6 +8,7 @@ import TranslationCard from './components/TranslationCard.vue';
 import RecordingWaveform from './components/RecordingWaveform.vue';
 import UsageTips from './components/UsageTips.vue';
 import BottomNavigation from './components/BottomNavigation.vue';
+import TranslationSettings from './components/TranslationSettings.vue';
 
 const router = useRouter();
 
@@ -52,6 +53,7 @@ const {
 const isPageLeaving = ref(false);
 const isLoading = ref(false);
 const isPaused = ref(false);
+const showSettings = ref(false);
 
 // 绑定语言选择到hooks中的值
 const localSourceLanguage = computed({
@@ -141,6 +143,11 @@ const timeDisplay = computed(() => {
 // 切换提示显示
 const toggleTips = () => {
   showTips.value = !showTips.value;
+};
+
+// 切换设置弹窗
+const toggleSettings = () => {
+  showSettings.value = !showSettings.value;
 };
 
 // 返回首页
@@ -352,6 +359,15 @@ const handleTargetLanguageChange = (newLang: string) => {
       @close="toggleTips"
     />
     
+    <!-- 翻译设置弹窗 -->
+    <TranslationSettings
+      v-model:show="showSettings"
+      :source-language="localSourceLanguage"
+      :target-language="localTargetLanguage"
+      @source-language-change="handleSourceLanguageChange"
+      @target-language-change="handleTargetLanguageChange"
+    />
+    
     <!-- 波形可视化区域，固定在底部导航上方 -->
     <div class="waveform-container-wrapper" v-if="isTranslating || isPaused">
       <RecordingWaveform 
@@ -366,6 +382,7 @@ const handleTargetLanguageChange = (newLang: string) => {
       :is-button-pressing="isButtonPressing"
       :is-paused="isPaused"
       @toggle-recording="toggleRecording"
+      @toggle-settings="toggleSettings"
       class="animate__animated animate__fadeIn page-element" 
       style="animation-delay: 0.5s;"
     />
@@ -529,7 +546,7 @@ const handleTargetLanguageChange = (newLang: string) => {
   transition: color 0.3s;
 }
 
-.info-button {
+.settings-button {
   margin-left: auto;
   font-size: 16px;
   color: #4169E1;
@@ -537,7 +554,19 @@ const handleTargetLanguageChange = (newLang: string) => {
   transition: transform 0.2s ease;
 }
 
-.info-button:active {
+.settings-button:active {
+  transform: scale(0.9);
+}
+
+.info-button {
+  margin-left: 10px;
+  font-size: 16px;
+  color: #4169E1;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.settings-button:active, .info-button:active {
   transform: scale(0.9);
 }
 
