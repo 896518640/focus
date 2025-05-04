@@ -168,6 +168,28 @@ export function useApiService(options: RealtimeTranslationOptions = {}) {
     }
   }
   
+  // 重新创建任务（用于语言切换）
+  const recreateTask = async () => {
+    try {
+      // 先停止当前任务（如果有）
+      if (taskId.value) {
+        await stopTask()
+      }
+      
+      // 确保状态被重置
+      taskId.value = null
+      meetingUrl.value = ''
+      isInitialized.value = false
+      
+      // 创建新任务，使用最新的语言设置
+      console.log('使用新的语言设置创建任务')
+      return await initializeTask(false)
+    } catch (error) {
+      console.error('重新创建任务失败:', error)
+      throw error
+    }
+  }
+  
   return {
     taskId,
     meetingUrl,
@@ -178,6 +200,7 @@ export function useApiService(options: RealtimeTranslationOptions = {}) {
     targetLanguages,
     initializeTask,
     stopTask,
-    updateLanguageSettings
+    updateLanguageSettings,
+    recreateTask
   }
 } 

@@ -143,10 +143,24 @@ export function useRealtimeTranslation(options: RealtimeTranslationOptions = {})
       
       // 重启任务，使用新的语言设置
       try {
-        await stopTranslation(false);
+        // 停止现有转写和音频采集
+        if (webSocket.isConnected.value) {
+          console.log('断开当前WebSocket连接');
+          webSocket.disconnect(1000, "语言切换重建任务");
+        }
+        
+        // 清理音频资源
+        audioProcessor.cleanupAudio();
+        audioInitialized.value = false;
+        
+        // 设置为非翻译状态
+        isTranslating.value = false;
         
         // 更新API服务的语言设置
         apiService.updateLanguageSettings(sourceLanguage.value, targetLanguages.value);
+        
+        // 使用新添加的方法重新创建任务
+        await apiService.recreateTask();
         
         // 延迟一点时间再重启，确保资源被正确释放
         setTimeout(() => {
@@ -156,8 +170,18 @@ export function useRealtimeTranslation(options: RealtimeTranslationOptions = {})
         console.error('重启翻译任务失败:', error);
       }
     } else {
-      // 不在翻译中，只需更新API服务的语言设置
+      // 不在翻译中，更新API服务的语言设置并重建任务（如果已存在）
       apiService.updateLanguageSettings(sourceLanguage.value, targetLanguages.value);
+      
+      // 如果已经初始化了任务，重新创建以应用新设置
+      if (apiService.isInitialized.value) {
+        console.log('重新创建任务以应用新的语言设置');
+        try {
+          await apiService.recreateTask();
+        } catch (error) {
+          console.error('重新创建任务失败:', error);
+        }
+      }
     }
   }
   
