@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, watch, onMounted } from 'vue'
 import { useUserStore } from "@/pinia/stores/user"
-import { useDark } from "@@/composables/useDark"
-import { getToken } from "@@/utils/cache/cookies"
+import { useDark } from "@/composables/useDark"
+import { getToken } from "@/utils/cache/cookies"
 
 const userStore = useUserStore()
 
@@ -74,7 +74,7 @@ initDark()
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   margin: 0;

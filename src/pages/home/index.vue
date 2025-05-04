@@ -6,37 +6,53 @@ const router = useRouter();
 
 // 功能卡片数据
 const features = [
+  // { 
+  //   id: 'recognition', 
+  //   title: '实时语音识别', 
+  //   description: '将课堂讲解转为文本', 
+  //   icon: 'fa-microphone', 
+  //   color: '#FF2D55',
+  //   path: '/recognition'
+  // },
+  // { 
+  //   id: 'upload', 
+  //   title: '录音上传', 
+  //   description: '上传音频文件转为文本', 
+  //   icon: 'fa-cloud-upload-alt', 
+  //   color: '#007AFF',
+  //   path: '/upload'
+  // },
+  // { 
+  //   id: 'translate', 
+  //   title: '机器翻译', 
+  //   description: '将英文文本翻译成中文', 
+  //   icon: 'fa-language', 
+  //   color: '#4CD964',
+  //   path: '/translate'
+  // },
+  // { 
+  //   id: 'summary', 
+  //   title: '课程摘要', 
+  //   description: '生成课程内容摘要', 
+  //   icon: 'fa-file-alt', 
+  //   color: '#FF9500',
+  //   path: '/summary'
+  // },
   { 
-    id: 'recognition', 
-    title: '实时语音识别', 
-    description: '将课堂讲解转为文本', 
-    icon: 'fa-microphone', 
-    color: '#FF2D55',
-    path: '/recognition'
+    id: 'simultaneous', 
+    title: '同传', 
+    description: '实时翻译语音内容', 
+    icon: 'fa-headset', 
+    color: '#4169E1',
+    path: '/simultaneous'
   },
   { 
-    id: 'upload', 
-    title: '录音上传', 
-    description: '上传音频文件转为文本', 
-    icon: 'fa-cloud-upload-alt', 
-    color: '#007AFF',
-    path: '/upload'
-  },
-  { 
-    id: 'translate', 
-    title: '机器翻译', 
-    description: '将英文文本翻译成中文', 
+    id: 'translate-demo', 
+    title: '实时翻译演示', 
+    description: '通义听悟API实时翻译', 
     icon: 'fa-language', 
-    color: '#4CD964',
-    path: '/translate'
-  },
-  { 
-    id: 'summary', 
-    title: '课程摘要', 
-    description: '生成课程内容摘要', 
-    icon: 'fa-file-alt', 
-    color: '#FF9500',
-    path: '/summary'
+    color: '#FF3B30',
+    path: '/translate-demo'
   }
 ];
 

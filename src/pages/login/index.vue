@@ -2,7 +2,7 @@
 import { ref, onMounted, reactive } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { showToast } from 'vant';
-import { setToken } from '@@/utils/cache/cookies';
+import { setToken } from '@/utils/cache/cookies';
 import { useUserStore } from '@/pinia/stores/user';
 import { login } from '@/services/authService';
 import { showSuccessMessage, showErrorMessage } from '@/http/axios';

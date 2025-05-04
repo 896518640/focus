@@ -1,6 +1,6 @@
 import { createRouter, createWebHashHistory, createWebHistory, RouteRecordRaw } from "vue-router"
 import { registerNavigationGuard } from "@/router/guard"
-import Layout from "@/common/layout/index.vue"
+import Layout from "@/layouts/index.vue"
 
 const VITE_PUBLIC_PATH = import.meta.env.VITE_PUBLIC_PATH
 
@@ -76,6 +76,24 @@ export const routes: RouteRecordRaw[] = [
         meta: {
           title: "我的",
           showNav: true
+        }
+      },
+      {
+        path: "/simultaneous",
+        name: "Simultaneous",
+        component: () => import("@/pages/simultaneous/index.vue"),
+        meta: {
+          title: "同传",
+          showNav: false
+        }
+      },
+      {
+        path: "/translate-demo",
+        name: "TranslateDemo",
+        component: () => import("@/pages/demo/translate-demo.vue"),
+        meta: {
+          title: "实时翻译演示",
+          showNav: false
         }
       }
     ]

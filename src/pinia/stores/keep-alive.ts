@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { pinia } from "@/pinia"
-import { isString } from "@@/utils/validate"
+import { isString } from "@/utils/validate"
 
 export const useKeepAliveStore = defineStore("keep-alive", () => {
   const cachedRoutes = ref<string[]>([])

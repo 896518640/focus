@@ -2,8 +2,8 @@ import type { Router, RouteLocationNormalizedGeneric } from "vue-router"
 import { useUserStore } from "@/pinia/stores/user"
 import { useKeepAliveStore } from "@/pinia/stores/keep-alive"
 import { isWhiteList } from "@/router/whitelist"
-import { useTitle } from "@@/composables/useTitle"
-import { getToken } from "@@/utils/cache/cookies"
+import { useTitle } from "@/composables/useTitle"
+import { getToken } from "@/utils/cache/cookies"
 import NProgress from "nprogress"
 
 NProgress.configure({ showSpinner: false })

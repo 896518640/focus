@@ -1,6 +1,6 @@
 import { pinia } from "@/pinia"
-import { getCurrentUserApi } from "@@/apis/users"
-import { setToken as _setToken, getToken, removeToken } from "@@/utils/cache/cookies"
+import { getCurrentUserApi } from "@/api/users"
+import { setToken as _setToken, getToken, removeToken } from "@/utils/cache/cookies"
 import { ref, computed, watch } from 'vue';
 
 // 添加翻译历史相关接口定义

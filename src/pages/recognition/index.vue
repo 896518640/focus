@@ -6,7 +6,7 @@
     </div>
     <div class="header-title">实时语音识别</div>
     <div class="header-actions">
-      <i class="fas fa-ellipsis-h"></i>
+      <i class="fas fa-sliders-h" @click="toggleAdvancedSettings"></i>
     </div>
   </div>
   
@@ -17,7 +17,7 @@
       <div class="language-row">
         <div class="language-column source">
           <div class="language-label">源语言</div>
-          <div class="language-select" @click="showSourceLanguagePopup = true">
+          <div class="language-select" @click="showSourceLanguagePopup = true" style="position: relative; z-index: 10;">
             <span>{{ sourceLanguage }}</span>
             <i class="fas fa-chevron-down"></i>
           </div>
@@ -27,7 +27,7 @@
         </div>
         <div class="language-column target">
           <div class="language-label">目标语言</div>
-          <div class="language-select" @click="showTargetLanguagePopup = true">
+          <div class="language-select" @click="showTargetLanguagePopup = true" style="position: relative; z-index: 10;">
             <span>{{ targetLanguage }}</span>
             <i class="fas fa-chevron-down"></i>
           </div>
@@ -78,6 +78,79 @@
           </button>
         </div>
       </div>
+      
+      <!-- 摘要和章节内容，当轮询完成时显示 -->
+      <div v-if="resultPollingComplete && hasAnySummaryContent" class="summary-container">
+        <div class="summary-header">
+          <i class="fas fa-lightbulb summary-icon"></i>
+          <span class="summary-title">内容摘要</span>
+          <button class="refresh-summary-btn" @click="handleRefreshSummary">
+            <i class="fas fa-sync-alt"></i>
+          </button>
+        </div>
+        
+        <!-- 段落摘要 -->
+        <div v-if="summaryResult.paragraphs?.length" class="summary-section">
+          <div class="summary-type-title">摘要概述</div>
+          <div v-for="(paragraph, index) in summaryResult.paragraphs" :key="'p'+index" class="summary-paragraph">
+            {{ paragraph }}
+          </div>
+        </div>
+        
+        <!-- 章节速览 -->
+        <div v-if="processedChapters.length" class="summary-section">
+          <div class="summary-type-title">章节速览</div>
+          <div class="chapters-list">
+            <div v-for="(chapter, index) in processedChapters" :key="'c'+index" class="chapter-item">
+              <div class="chapter-number">{{ index + 1 }}</div>
+              <div class="chapter-content">
+                <div class="chapter-title">{{ chapter.title || `章节 ${index + 1}` }}</div>
+                <div class="chapter-summary">{{ chapter.summary || chapter }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 问答摘要 -->
+        <div v-if="summaryResult.questionsAnswering?.length" class="summary-section">
+          <div class="summary-type-title">问答摘要</div>
+          <div class="qa-list">
+            <div v-for="(qa, index) in summaryResult.questionsAnswering" :key="'qa'+index" class="qa-item">
+              <div class="qa-question">Q: {{ qa.question || '问题' }}</div>
+              <div class="qa-answer">A: {{ qa.answer || qa }}</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 对话摘要 -->
+        <div v-if="summaryResult.conversations?.length" class="summary-section">
+          <div class="summary-type-title">对话摘要</div>
+          <div class="conversation-list">
+            <div v-for="(conv, index) in summaryResult.conversations" :key="'conv'+index" class="conversation-item">
+              {{ conv }}
+            </div>
+          </div>
+        </div>
+        
+        <!-- 文本润色 -->
+        <div v-if="processedTextPolish.length" class="summary-section">
+          <div class="summary-type-title">润色文本</div>
+          <div class="text-polish">
+            <div v-for="(polish, index) in processedTextPolish" :key="'polish'+index" class="polish-item">
+              {{ polish }}
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 正在获取摘要结果的提示 -->
+      <div v-if="isPollingResult && !resultPollingComplete" class="polling-indicator">
+        <div class="polling-spinner">
+          <i class="fas fa-spinner fa-spin"></i>
+        </div>
+        <div class="polling-text">正在生成摘要...</div>
+      </div>
+      
       <div class="transcript-content">
         <div v-for="(segment, index) in transcriptSegments" :key="index" class="transcript-segment">
           <div class="segment-time">{{ formatTime(segment.timestamp) }}</div>
@@ -135,24 +208,162 @@
   </div>
   
   <!-- 语言选择弹出层 -->
-  <van-popup v-model:show="showSourceLanguagePopup" position="bottom" round>
-    <van-picker
-      title="选择源语言"
-      :columns="languageOptions"
-      @confirm="onSourceLanguageConfirm"
-      @cancel="showSourceLanguagePopup = false"
-      show-toolbar
-    />
-  </van-popup>
+  <div class="custom-popup-overlay" v-show="showSourceLanguagePopup" @click="showSourceLanguagePopup = false"></div>
+  <div class="custom-popup" v-show="showSourceLanguagePopup">
+    <div class="custom-popup-header">
+      <div class="custom-popup-title">选择源语言</div>
+      <div class="custom-popup-close" @click="showSourceLanguagePopup = false">
+        <i class="fas fa-times"></i>
+      </div>
+    </div>
+    <div class="custom-popup-content">
+      <div 
+        v-for="lang in languageOptions" 
+        :key="lang" 
+        class="custom-popup-item"
+        @click="selectSourceLanguage(lang)"
+      >
+        {{ lang }}
+      </div>
+    </div>
+  </div>
   
-  <van-popup v-model:show="showTargetLanguagePopup" position="bottom" round>
-    <van-picker
-      title="选择目标语言"
-      :columns="languageOptions"
-      @confirm="onTargetLanguageConfirm"
-      @cancel="showTargetLanguagePopup = false"
-      show-toolbar
-    />
+  <div class="custom-popup-overlay" v-show="showTargetLanguagePopup" @click="showTargetLanguagePopup = false"></div>
+  <div class="custom-popup" v-show="showTargetLanguagePopup">
+    <div class="custom-popup-header">
+      <div class="custom-popup-title">选择目标语言</div>
+      <div class="custom-popup-close" @click="showTargetLanguagePopup = false">
+        <i class="fas fa-times"></i>
+      </div>
+    </div>
+    <div class="custom-popup-content">
+      <div 
+        v-for="lang in languageOptions" 
+        :key="lang" 
+        class="custom-popup-item"
+        @click="selectTargetLanguage(lang)"
+      >
+        {{ lang }}
+      </div>
+    </div>
+  </div>
+  
+  <!-- 高级设置弹出层 -->
+  <van-popup v-model:show="showAdvancedSettings" position="right" round :style="{ width: '85%', height: '100%' }">
+    <div class="advanced-settings-container">
+      <div class="advanced-settings-header">
+        <div class="advanced-settings-title">高级设置</div>
+        <div class="advanced-settings-close" @click="showAdvancedSettings = false">
+          <i class="fas fa-times"></i>
+        </div>
+      </div>
+      
+      <div class="advanced-settings-content">
+        <!-- 转录设置部分 -->
+        <div class="settings-section">
+          <div class="settings-section-title">转录设置</div>
+          
+          <!-- 多语种设置 (仅当源语言选择多语种时显示) -->
+          <div class="settings-item" v-if="sourceLanguage === '多语种'">
+            <div class="settings-item-label">多语种提示</div>
+            <div class="settings-item-desc">选择希望系统识别的语言种类</div>
+            <van-checkbox-group v-model="advancedSettings.languageHints">
+              <van-checkbox v-for="lang in languageHintOptions" :key="lang.value" :name="lang.value" shape="square">
+                {{ lang.text }}
+              </van-checkbox>
+            </van-checkbox-group>
+          </div>
+          
+          <!-- 说话人分离功能 -->
+          <div class="settings-item">
+            <div class="settings-item-label">说话人分离</div>
+            <div class="settings-item-desc">用于多人对话场景，自动分离不同说话人</div>
+            <van-switch v-model="advancedSettings.diarizationEnabled" size="24px" />
+          </div>
+          
+          <!-- 说话人数量 (仅当开启说话人分离时显示) -->
+          <div class="settings-item" v-if="advancedSettings.diarizationEnabled">
+            <div class="settings-item-label">说话人数量</div>
+            <div class="settings-item-desc">设置对话中的参与人数</div>
+            <van-stepper v-model="advancedSettings.speakerCount" min="2" max="10" theme="round" />
+          </div>
+          
+          <!-- 结果输出等级 -->
+          <div class="settings-item">
+            <div class="settings-item-label">转录结果等级</div>
+            <div class="settings-item-desc">设置识别结果的实时性</div>
+            <van-radio-group v-model="advancedSettings.transcriptionOutputLevel" direction="horizontal">
+              <van-radio name="1">仅完整句子</van-radio>
+              <van-radio name="2">包含中间结果</van-radio>
+            </van-radio-group>
+          </div>
+        </div>
+        
+        <!-- 翻译设置部分 -->
+        <div class="settings-section">
+          <div class="settings-section-title">翻译设置</div>
+          
+          <!-- 是否启用翻译 -->
+          <div class="settings-item">
+            <div class="settings-item-label">启用翻译</div>
+            <div class="settings-item-desc">开启实时翻译功能</div>
+            <van-switch v-model="advancedSettings.translationEnabled" size="24px" />
+          </div>
+          
+          <!-- 翻译结果等级 (仅当启用翻译时显示) -->
+          <div class="settings-item" v-if="advancedSettings.translationEnabled">
+            <div class="settings-item-label">翻译结果等级</div>
+            <div class="settings-item-desc">设置翻译结果的实时性</div>
+            <van-radio-group v-model="advancedSettings.translationOutputLevel" direction="horizontal">
+              <van-radio name="1">仅完整句子</van-radio>
+              <van-radio name="2">包含中间结果</van-radio>
+            </van-radio-group>
+          </div>
+        </div>
+        
+        <!-- 增强功能部分 -->
+        <div class="settings-section">
+          <div class="settings-section-title">增强功能</div>
+          
+          <!-- 章节速览 -->
+          <div class="settings-item">
+            <div class="settings-item-label">章节速览</div>
+            <div class="settings-item-desc">自动生成段落标题和概要</div>
+            <van-switch v-model="advancedSettings.autoChaptersEnabled" size="24px" />
+          </div>
+          
+          <!-- 摘要总结 -->
+          <div class="settings-item">
+            <div class="settings-item-label">摘要总结</div>
+            <div class="settings-item-desc">自动生成内容摘要</div>
+            <van-switch v-model="advancedSettings.summarizationEnabled" size="24px" />
+          </div>
+          
+          <!-- 摘要类型 (仅当开启摘要总结时显示) -->
+          <div class="settings-item" v-if="advancedSettings.summarizationEnabled">
+            <div class="settings-item-label">摘要类型</div>
+            <div class="settings-item-desc">选择摘要生成方式</div>
+            <van-checkbox-group v-model="advancedSettings.summarizationTypes" direction="horizontal" class="summarization-types">
+              <van-checkbox shape="square" name="Paragraph" class="summarization-type">段落摘要</van-checkbox>
+              <van-checkbox shape="square" name="Conversational" class="summarization-type">对话摘要</van-checkbox>
+              <van-checkbox shape="square" name="QuestionsAnswering" class="summarization-type">问答摘要</van-checkbox>
+              <van-checkbox shape="square" name="MindMap" class="summarization-type">思维导图</van-checkbox>
+            </van-checkbox-group>
+          </div>
+          
+          <!-- 口语书面化 -->
+          <div class="settings-item">
+            <div class="settings-item-label">口语书面化</div>
+            <div class="settings-item-desc">将口语表达优化为书面语</div>
+            <van-switch v-model="advancedSettings.textPolishEnabled" size="24px" />
+          </div>
+        </div>
+      </div>
+      
+      <div class="advanced-settings-footer">
+        <van-button type="primary" block @click="saveAdvancedSettings">保存设置</van-button>
+      </div>
+    </div>
   </van-popup>
   
   <!-- 操作成功提示 -->
@@ -160,7 +371,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { showToast } from 'vant';
 import axios from 'axios';
@@ -179,7 +390,7 @@ const sourceLanguage = ref('英语');
 const targetLanguage = ref('中文');
 const showSourceLanguagePopup = ref(false);
 const showTargetLanguagePopup = ref(false);
-const languageOptions = ['英语', '中文', '日语', '韩语', '法语', '德语', '西班牙语', '俄语'];
+const languageOptions = ['英语', '中文', '日语', '韩语', '法语', '德语', '西班牙语', '俄语', '粤语', '多语种'];
 const isRotating = ref(false);
 
 // 映射显示语言到API语言代码
@@ -191,8 +402,18 @@ const languageCodeMap = {
   '法语': 'fr',
   '德语': 'de',
   '俄语': 'ru',
-  '西班牙语': 'es'
+  '西班牙语': 'es',
+  '粤语': 'yue',
+  '多语种': 'multilingual'
 };
+
+// 语言提示选项（多语种模式使用）
+const languageHintOptions = [
+  { text: '中文', value: 'cn' },
+  { text: '英语', value: 'en' },
+  { text: '日语', value: 'ja' },
+  { text: '韩语', value: 'ko' }
+];
 
 // 录音状态
 const isRecording = ref(false);
@@ -210,6 +431,55 @@ interface TranscriptSegment {
 const transcriptSegments = ref<TranscriptSegment[]>([]);
 // 当前正在处理的句子索引
 const currentSegmentIndex = ref<number | null>(null);
+
+// 摘要相关状态
+const summaryResult = ref<{
+  paragraphs?: string[];
+  conversations?: string[];
+  questionsAnswering?: { question: string, answer: string }[];
+  mindMap?: any;
+  chapters?: any;
+  textPolish?: any;
+}>({});
+const isPollingResult = ref(false);
+const resultPollingComplete = ref(false);
+
+// 处理后的章节数据
+const processedChapters = computed(() => {
+  if (summaryResult.value.chapters && summaryResult.value.chapters.AutoChapters) {
+    return summaryResult.value.chapters.AutoChapters;
+  } else if (Array.isArray(summaryResult.value.chapters)) {
+    return summaryResult.value.chapters;
+  } else if (summaryResult.value.chapters && typeof summaryResult.value.chapters === 'object') {
+    return Object.values(summaryResult.value.chapters);
+  } else {
+    return [];
+  }
+});
+
+// 处理后的文本润色数据
+const processedTextPolish = computed(() => {
+  if (summaryResult.value.textPolish && summaryResult.value.textPolish.TextPolish) {
+    return summaryResult.value.textPolish.TextPolish.map(item => item.FormalParagraphText);
+  } else if (Array.isArray(summaryResult.value.textPolish)) {
+    return summaryResult.value.textPolish;
+  } else if (summaryResult.value.textPolish && typeof summaryResult.value.textPolish === 'object') {
+    return Object.values(summaryResult.value.textPolish);
+  } else {
+    return [];
+  }
+});
+
+// 是否有任何摘要内容
+const hasAnySummaryContent = computed(() => {
+  return !!(
+    (summaryResult.value.paragraphs && summaryResult.value.paragraphs.length > 0) ||
+    (processedChapters.value.length > 0) ||
+    (summaryResult.value.questionsAnswering && summaryResult.value.questionsAnswering.length > 0) ||
+    (summaryResult.value.conversations && summaryResult.value.conversations.length > 0) ||
+    processedTextPolish.value.length
+  );
+});
 
 // 音频可视化相关
 const audioContext = ref<AudioContext | null>(null);
@@ -293,6 +563,21 @@ const audioData = ref({
     // 直接返回ArrayBuffer而不是Blob，这样可以使用byteLength属性
     return buffer;
   }
+});
+
+// 高级设置
+const showAdvancedSettings = ref(false);
+const advancedSettings = ref({
+  diarizationEnabled: false,
+  speakerCount: 2,
+  transcriptionOutputLevel: '1',
+  translationEnabled: true,
+  translationOutputLevel: '1',
+  autoChaptersEnabled: false,
+  summarizationEnabled: false,
+  summarizationTypes: ['Paragraph'],
+  textPolishEnabled: false,
+  languageHints: []
 });
 
 // 页面加载动画
@@ -400,7 +685,7 @@ const switchLanguages = () => {
 };
 
 // 确认源语言选择
-const onSourceLanguageConfirm = (value: string) => {
+const selectSourceLanguage = (value: string) => {
   // 添加选择动画
   const sourceEl = document.querySelector('.language-column.source .language-select');
   if (sourceEl) {
@@ -415,7 +700,7 @@ const onSourceLanguageConfirm = (value: string) => {
 };
 
 // 确认目标语言选择
-const onTargetLanguageConfirm = (value: string) => {
+const selectTargetLanguage = (value: string) => {
   // 添加选择动画
   const targetEl = document.querySelector('.language-column.target .language-select');
   if (targetEl) {
@@ -552,14 +837,52 @@ const createRealtimeTask = async () => {
     const targetCode = languageCodeMap[targetLanguage.value as keyof typeof languageCodeMap] || 'cn';
     
     // 创建任务请求参数
-    const taskParams = {
+    const taskParams: any = {
       sourceLanguage: sourceCode,
       format: 'pcm', // PCM格式
       sampleRate: '16000', // 16kHz采样率
-      translationEnabled: true,
+      translationEnabled: advancedSettings.value.translationEnabled,
       targetLanguages: [targetCode],
-      diarizationEnabled: false
+      
+      // 添加高级设置参数
+      diarizationEnabled: advancedSettings.value.diarizationEnabled,
+      speakerCount: advancedSettings.value.diarizationEnabled ? advancedSettings.value.speakerCount : undefined,
     };
+    
+    // 如果是多语种模式，添加语言提示
+    if (sourceCode === 'multilingual' && advancedSettings.value.languageHints.length > 0) {
+      taskParams.languageHints = advancedSettings.value.languageHints;
+    }
+    
+    // 转录设置
+    taskParams.transcription = {
+      outputLevel: parseInt(advancedSettings.value.transcriptionOutputLevel)
+    };
+    
+    // 翻译设置
+    if (advancedSettings.value.translationEnabled) {
+      taskParams.translation = {
+        outputLevel: parseInt(advancedSettings.value.translationOutputLevel)
+      };
+    }
+    
+    // 增强功能
+    if (advancedSettings.value.autoChaptersEnabled) {
+      taskParams.autoChaptersEnabled = true;
+    }
+    
+    if (advancedSettings.value.summarizationEnabled) {
+      taskParams.summarizationEnabled = true;
+      if (advancedSettings.value.summarizationTypes.length > 0) {
+        taskParams.summarization = {
+          types: advancedSettings.value.summarizationTypes
+        };
+      }
+    }
+    
+    if (advancedSettings.value.textPolishEnabled) {
+      taskParams.textPolishEnabled = true;
+    }
     
     // 发送创建任务请求
     console.log('创建实时翻译任务参数:', taskParams);
@@ -602,7 +925,7 @@ const sendStartTranscriptionMessage = () => {
     },
     payload: {
       format: "pcm",
-      sample_rate: 16000,
+      sample_rate: "16000",
       enable_intermediate_result: true,
       enable_punctuation_prediction: true,
       enable_inverse_text_normalization: true,
@@ -801,14 +1124,18 @@ const stopRealtimeTask = async () => {
     
     if (response.data.success) {
       console.log('实时翻译任务已停止:', response.data);
+      
+      // 如果启用了摘要功能，开始轮询获取摘要结果
+      if (advancedSettings.value.summarizationEnabled || 
+          advancedSettings.value.autoChaptersEnabled || 
+          advancedSettings.value.textPolishEnabled) {
+        startPollingTaskResult();
+      }
     } else {
       console.warn('停止实时翻译任务失败:', response.data.message);
     }
   } catch (error) {
     console.error('停止实时翻译任务出错:', error);
-  } finally {
-    // 重置任务ID
-    currentTaskId.value = null;
   }
 };
 
@@ -1254,6 +1581,108 @@ const formatTime = (seconds: number): string => {
   const secs = seconds % 60;
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
+
+// 切换高级设置
+const toggleAdvancedSettings = () => {
+  showAdvancedSettings.value = !showAdvancedSettings.value;
+};
+
+// 保存高级设置
+const saveAdvancedSettings = () => {
+  // 保存设置
+  console.log('保存高级设置:', advancedSettings.value);
+  
+  // 关闭高级设置弹出层
+  showAdvancedSettings.value = false;
+};
+
+// 开始轮询获取任务结果
+const startPollingTaskResult = async () => {
+  isPollingResult.value = true;
+  resultPollingComplete.value = false;
+  
+  // 轮询计数，最多尝试10次（约30秒）
+  let pollingCount = 0;
+  const maxPollingCount = 10;
+  
+  // 显示开始获取摘要的提示
+  showToast({
+    message: '正在生成内容摘要...',
+    position: 'bottom',
+    duration: 2000
+  });
+  
+  const pollingInterval = setInterval(async () => {
+    if (!currentTaskId.value || pollingCount >= maxPollingCount) {
+      clearInterval(pollingInterval);
+      isPollingResult.value = false;
+      
+      // 如果未能获取到摘要，显示提示
+      if (!resultPollingComplete.value && pollingCount >= maxPollingCount) {
+        showToast({
+          message: '摘要生成中，可能需要更长时间',
+          position: 'bottom'
+        });
+      }
+      return;
+    }
+    
+    pollingCount++;
+    
+    try {
+      const response = await axios.get(`/api/v1/tingwu/realtime/${currentTaskId.value}/result`);
+      
+      if (response.data.success) {
+        const result = response.data.data;
+        console.log('获取任务结果:', result);
+        
+        // 处理结果
+        if (result.summary) {
+          // 设置摘要结果
+          summaryResult.value = result.summary;
+          
+          // 检查是否有任何摘要数据
+          const hasSummary = 
+            result.summary.paragraphs?.length > 0 || 
+            processedChapters.value.length > 0 || 
+            result.summary.questionsAnswering?.length > 0 || 
+            result.summary.conversations?.length > 0 ||
+            processedTextPolish.value.length;
+          
+          // 如果有摘要数据或状态为完成，则停止轮询
+          if (hasSummary || result.status === 'completed') {
+            clearInterval(pollingInterval);
+            resultPollingComplete.value = true;
+            isPollingResult.value = false;
+            
+            // 显示摘要生成完成的提示
+            if (hasSummary) {
+              showToast({
+                message: '摘要生成完成',
+                icon: 'success',
+                position: 'bottom'
+              });
+            }
+          }
+        }
+      } else {
+        console.error('获取任务结果失败:', response.data.message);
+      }
+    } catch (error) {
+      console.error('获取任务结果出错:', error);
+    }
+  }, 3000);
+};
+
+// 刷新摘要
+const handleRefreshSummary = async () => {
+  // 清空当前摘要结果
+  summaryResult.value = {};
+  resultPollingComplete.value = false;
+  
+  // 开始重新获取摘要结果
+  startPollingTaskResult();
+};
 </script>
 
 <style scoped>
@@ -1366,6 +1795,8 @@ const formatTime = (seconds: number): string => {
   color: var(--text-primary, #000000);
   cursor: pointer;
   transition: all 0.2s ease;
+  position: relative;
+  z-index: 10;
 }
 
 .language-select:active {
@@ -1595,7 +2026,7 @@ const formatTime = (seconds: number): string => {
   padding: 6px 10px;
   border-radius: 6px;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.2s;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1608,6 +2039,140 @@ const formatTime = (seconds: number): string => {
 
 .segment-action-button i {
   font-size: 14px;
+}
+
+.summary-container {
+  padding: 16px;
+  background-color: #FFFFFF;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  margin-bottom: 16px;
+}
+
+.summary-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.summary-icon {
+  font-size: 18px;
+  color: #FF9500;
+  margin-right: 8px;
+}
+
+.summary-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary, #000000);
+}
+
+.refresh-summary-btn {
+  font-size: 18px;
+  color: #007AFF;
+  margin-left: 16px;
+  cursor: pointer;
+}
+
+.summary-section {
+  margin-bottom: 24px;
+}
+
+.summary-type-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, #000000);
+  margin-bottom: 12px;
+}
+
+.summary-paragraph {
+  font-size: 14px;
+  color: var(--text-secondary, #8E8E93);
+  margin-bottom: 12px;
+}
+
+.chapters-list {
+  padding: 0 16px;
+}
+
+.chapter-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-color, #E5E5EA);
+}
+
+.chapter-number {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #000000);
+  width: 24px;
+  text-align: center;
+}
+
+.chapter-content {
+  flex: 1;
+  padding-left: 12px;
+}
+
+.chapter-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #000000);
+  margin-bottom: 4px;
+}
+
+.chapter-summary {
+  font-size: 13px;
+  color: var(--text-secondary, #8E8E93);
+}
+
+.qa-list {
+  padding: 0 16px;
+}
+
+.qa-item {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-color, #E5E5EA);
+}
+
+.qa-question {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary, #000000);
+  margin-bottom: 4px;
+}
+
+.qa-answer {
+  font-size: 13px;
+  color: var(--text-secondary, #8E8E93);
+}
+
+.conversation-list {
+  padding: 0 16px;
+}
+
+.conversation-item {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-color, #E5E5EA);
+  font-size: 13px;
+  color: var(--text-secondary, #8E8E93);
+}
+
+.polling-indicator {
+  padding: 16px;
+  text-align: center;
+}
+
+.polling-spinner {
+  font-size: 24px;
+  color: #8E8E93;
+  margin-bottom: 8px;
+}
+
+.polling-text {
+  font-size: 14px;
+  color: var(--text-secondary, #8E8E93);
 }
 
 .transcript-empty {
@@ -1671,6 +2236,72 @@ const formatTime = (seconds: number): string => {
   font-size: 13px;
   line-height: 1.5;
   color: var(--text-secondary, #8E8E93);
+}
+
+/* 高级设置弹出层 */
+.advanced-settings-container {
+  padding: 16px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.advanced-settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color, #E5E5EA);
+}
+
+.advanced-settings-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary, #000000);
+}
+
+.advanced-settings-close {
+  font-size: 18px;
+  color: var(--text-secondary, #8E8E93);
+  cursor: pointer;
+}
+
+.advanced-settings-content {
+  padding: 16px 0;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.settings-section {
+  margin-bottom: 24px;
+}
+
+.settings-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, #000000);
+  margin-bottom: 12px;
+}
+
+.settings-item {
+  margin-bottom: 16px;
+}
+
+.settings-item-label {
+  font-size: 14px;
+  color: var(--text-secondary, #8E8E93);
+  margin-bottom: 8px;
+}
+
+.settings-item-desc {
+  font-size: 13px;
+  color: var(--text-secondary, #8E8E93);
+  margin-bottom: 8px;
+}
+
+.advanced-settings-footer {
+  padding: 16px 0;
+  border-top: 1px solid var(--border-color, #E5E5EA);
 }
 
 /* 动画效果 */
@@ -1763,5 +2394,277 @@ const formatTime = (seconds: number): string => {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.2);
+}
+
+/* 自定义弹出层样式 */
+.custom-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+.custom-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #FFFFFF;
+  border-radius: 12px;
+  padding: 20px;
+  width: 80%;
+  max-width: 400px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  z-index: 1001;
+}
+
+.custom-popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color, #E5E5EA);
+}
+
+.custom-popup-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary, #000000);
+}
+
+.custom-popup-close {
+  font-size: 18px;
+  color: var(--text-secondary, #8E8E93);
+  cursor: pointer;
+}
+
+.custom-popup-content {
+  padding: 16px 0;
+}
+
+.custom-popup-item {
+  padding: 12px 16px;
+  font-size: 15px;
+  color: var(--text-primary, #000000);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.custom-popup-item:active {
+  background-color: #EBEBEB;
+}
+
+/* 摘要样式 */
+.summary-container {
+  background-color: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  margin: 20px 0;
+  padding: 20px;
+  transition: all 0.3s ease;
+  animation: fade-in 0.5s ease;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.summary-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.summary-icon {
+  color: #FF9500;
+  font-size: 20px;
+  margin-right: 10px;
+}
+
+.summary-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary, #000000);
+}
+
+.refresh-summary-btn {
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: #007AFF;
+  margin-left: auto;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.refresh-summary-btn:active {
+  background-color: rgba(0, 122, 255, 0.1);
+}
+
+.summary-section {
+  margin-bottom: 24px;
+}
+
+.summary-type-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #8E8E93;
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #E5E5EA;
+}
+
+.summary-paragraph {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-primary, #000000);
+  margin-bottom: 16px;
+  padding-left: 10px;
+  border-left: 3px solid #34C759;
+}
+
+.chapters-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.chapter-item {
+  display: flex;
+  gap: 16px;
+  padding: 12px;
+  border-radius: 12px;
+  background-color: #F2F2F7;
+  transition: transform 0.2s;
+}
+
+.chapter-item:active {
+  transform: scale(0.99);
+}
+
+.chapter-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  background-color: #5856D6;
+  border-radius: 50%;
+}
+
+.chapter-content {
+  flex: 1;
+}
+
+.chapter-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text-primary, #000000);
+}
+
+.chapter-summary {
+  font-size: 14px;
+  color: #666;
+  line-height: 1.4;
+}
+
+.qa-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.qa-item {
+  padding: 14px;
+  border-radius: 12px;
+  background-color: #F2F2F7;
+  transition: all 0.2s;
+}
+
+.qa-question {
+  font-size: 15px;
+  font-weight: 600;
+  color: #007AFF;
+  margin-bottom: 10px;
+}
+
+.qa-answer {
+  font-size: 14px;
+  color: var(--text-primary, #000000);
+  line-height: 1.5;
+}
+
+.conversation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.conversation-item {
+  padding: 12px 16px;
+  border-radius: 12px;
+  background-color: #E5F7FF;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary, #000000);
+}
+
+.text-polish {
+  background-color: #F2F2F7;
+  padding: 15px;
+  border-radius: 12px;
+}
+
+.polish-item {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary, #000000);
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed #E5E5EA;
+}
+
+.polish-item:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.summary-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 30px 0;
+  color: #8E8E93;
+}
+
+.summary-loading-icon {
+  font-size: 24px;
+  margin-bottom: 16px;
+  animation: spin 1.5s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>

@@ -14,7 +14,7 @@ import 'vant/lib/index.css';
 // css
 import "normalize.css"
 import "nprogress/nprogress.css"
-import "@@/assets/styles/index.css"
+import "@/assets/styles/index.css"
 import "virtual:uno.css"
 // 自定义 Vant 样式
 import "@/assets/styles/vant-custom.css"
