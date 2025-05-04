@@ -87,23 +87,20 @@ export function useMessageHandler(options: {
         // 检查并修正单词时间范围
         processedWords = processedWords.map((word: any) => {
           // 确保每个单词都有有效的开始和结束时间
-          if (word.startTime === undefined || word.endTime === undefined) {
-            return {
-              ...word,
-              startTime: word.startTime !== undefined ? word.startTime : beginTime,
-              endTime: word.endTime !== undefined ? word.endTime : endTime
-            };
-          }
+          const processed = {
+            ...word,
+            startTime: word.startTime !== undefined ? word.startTime : beginTime,
+            endTime: word.endTime !== undefined ? word.endTime : endTime,
+            text: word.text || '',
+            punc: word.punc || ''  // 保留标点符号
+          };
           
           // 确保结束时间不早于开始时间
-          if (word.endTime < word.startTime) {
-            return {
-              ...word,
-              endTime: word.startTime + 500 // 假设至少持续500ms
-            };
+          if (processed.endTime < processed.startTime) {
+            processed.endTime = processed.startTime + 500; // 假设至少持续500ms
           }
           
-          return word;
+          return processed;
         });
       }
       

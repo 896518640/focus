@@ -370,7 +370,17 @@ export function useSessionManager() {
       }
       
       // 构建最终文本
-      currentSessionText = uniqueWords.map(word => word.text).join('');
+      currentSessionText = uniqueWords.map(word => {
+        // 添加单词的文本
+        let text = word.text;
+        
+        // 如果有标点符号，添加到文本后面
+        if (word.punc) {
+          text += word.punc;
+        }
+        
+        return text;
+      }).join('');
     }
     
     // 检查当前会话文本是否已经包含在历史内容中
