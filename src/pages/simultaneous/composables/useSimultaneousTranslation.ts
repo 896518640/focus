@@ -5,11 +5,16 @@ import { useTimer } from './useTimer';
 import { useWaveform } from './useWaveform';
 import { useRecordingControl } from './useRecordingControl';
 import { useSaveTranslation } from './useSaveTranslation';
+import { useTextEffect } from './useTextEffect';
 
 interface UseSimultaneousTranslationOptions {
   sourceLanguage?: string;
   targetLanguages?: string[];
   autoStart?: boolean;
+  typingSpeed?: number; // 打字速度（毫秒/字符）
+  minTypingSpeed?: number; // 最小打字速度
+  maxTypingSpeed?: number; // 最大打字速度
+  characterVariation?: boolean; // 是否启用字符变化的随机速度
 }
 
 export function useSimultaneousTranslation(options?: UseSimultaneousTranslationOptions) {
@@ -55,6 +60,21 @@ export function useSimultaneousTranslation(options?: UseSimultaneousTranslationO
       liveTranslation.value = text;
     }
   } as RealtimeTranslationOptions);
+  
+  // 初始化文本特效
+  const {
+    displayedSource,
+    displayedTranslation,
+    showFullText,
+    cleanup: cleanupTextEffect
+  } = useTextEffect({
+    sourceText: liveText,
+    translatedText: liveTranslation,
+    speed: options?.typingSpeed || 15, // 默认打字速度
+    minSpeed: options?.minTypingSpeed || 10,
+    maxSpeed: options?.maxTypingSpeed || 25,
+    characterVariation: options?.characterVariation !== false // 默认启用字符变化的随机速度
+  });
   
   // 初始化timer
   const {
@@ -125,36 +145,22 @@ export function useSimultaneousTranslation(options?: UseSimultaneousTranslationO
     set: (value) => handleTargetLanguageChange(value)
   });
   
-  // 监听翻译结果变化
-  watch(transcriptionResult, (newVal) => {
-    if (typeof newVal === 'string') {
-      liveText.value = newVal;
-      // 延迟一帧，确保DOM更新后再滚动
-      requestAnimationFrame(() => {
-        const textElements = document.querySelectorAll('.source-text, .translated-text');
-        textElements.forEach(el => {
-          if (el instanceof HTMLElement) {
-            el.scrollTop = el.scrollHeight;
-          }
-        });
+  // 监听翻译结果变化，自动滚动到底部
+  watch(() => [displayedSource.value, displayedTranslation.value], () => {
+    // 延迟一帧，确保DOM更新后再滚动
+    requestAnimationFrame(() => {
+      const textElements = document.querySelectorAll('.source-text, .translated-text');
+      textElements.forEach(el => {
+        if (el instanceof HTMLElement) {
+          // 使用平滑滚动API
+          el.scrollTo({
+            top: el.scrollHeight,
+            behavior: 'smooth'
+          });
+        }
       });
-    }
-  });
-  
-  watch(translationResult, (newVal) => {
-    if (typeof newVal === 'string') {
-      liveTranslation.value = newVal;
-      // 延迟一帧，确保DOM更新后再滚动
-      requestAnimationFrame(() => {
-        const textElements = document.querySelectorAll('.translated-text');
-        textElements.forEach(el => {
-          if (el instanceof HTMLElement) {
-            el.scrollTop = el.scrollHeight;
-          }
-        });
-      });
-    }
-  });
+    });
+  }, { deep: true });
   
   // 处理语言变化
   const handleSourceLanguageChange = (newLang: string) => {
@@ -183,6 +189,7 @@ export function useSimultaneousTranslation(options?: UseSimultaneousTranslationO
     // 清理定时器和波形资源
     cleanupTimer();
     cleanupWaveform();
+    cleanupTextEffect();
   };
   
   return {
@@ -212,6 +219,11 @@ export function useSimultaneousTranslation(options?: UseSimultaneousTranslationO
     micButtonLabel,
     localSourceLanguage,
     localTargetLanguage,
+    
+    // 打字机效果数据
+    displayedSource,
+    displayedTranslation,
+    showFullText,
     
     // 方法
     toggleRecording,

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, computed } from 'vue';
+import { ref, watch, nextTick, computed, onUnmounted } from 'vue';
 
 const props = defineProps({
   isRecording: {
@@ -27,21 +27,58 @@ const translatedTextRef = ref<HTMLElement | null>(null);
 watch(() => props.sourceText, async () => {
   if (props.sourceText && sourceTextRef.value) {
     await nextTick();
-    scrollToBottom(sourceTextRef.value);
+    smoothScrollToBottom(sourceTextRef.value);
   }
 }, { immediate: true });
 
 watch(() => props.translatedText, async () => {
   if (props.translatedText && translatedTextRef.value) {
     await nextTick();
-    scrollToBottom(translatedTextRef.value);
+    smoothScrollToBottom(translatedTextRef.value);
   }
 }, { immediate: true });
 
-// 滚动到底部的方法
-const scrollToBottom = (element: HTMLElement) => {
-  element.scrollTop = element.scrollHeight;
+// 平滑滚动到底部的方法
+const smoothScrollToBottom = (element: HTMLElement) => {
+  // 检查是否需要滚动（内容高度大于容器高度）
+  if (element.scrollHeight <= element.clientHeight) return;
+  
+  // 当前滚动位置与底部的距离
+  const distanceToBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
+  
+  // 如果已经很接近底部（小于100px），或者内容刚出现，使用平滑滚动
+  if (distanceToBottom < 100) {
+    element.scrollTo({
+      top: element.scrollHeight,
+      behavior: 'smooth'
+    });
+  } else {
+    // 如果距离较远，先快速滚动到接近底部的位置，然后再平滑滚动
+    element.scrollTo({
+      top: element.scrollHeight - 100,
+      behavior: 'auto'
+    });
+    
+    // 短暂延迟后平滑滚动到底部
+    setTimeout(() => {
+      element.scrollTo({
+        top: element.scrollHeight,
+        behavior: 'smooth'
+      });
+    }, 10);
+  }
 };
+
+// 添加光标闪烁效果
+const showCursor = ref(false);
+const cursorInterval = setInterval(() => {
+  showCursor.value = !showCursor.value;
+}, 500);
+
+// 组件卸载时清理资源
+onUnmounted(() => {
+  clearInterval(cursorInterval);
+});
 </script>
 
 <template>
@@ -55,7 +92,8 @@ const scrollToBottom = (element: HTMLElement) => {
     <div v-if="!isEmpty" class="text-container">
       <div class="source-text-wrapper">
         <div ref="sourceTextRef" class="source-text">
-          <pre>{{ sourceText }}</pre>
+          <span>{{ sourceText }}</span>
+          <span v-if="isRecording && sourceText && showCursor" class="cursor">|</span>
         </div>
       </div>
     </div>
@@ -71,7 +109,8 @@ const scrollToBottom = (element: HTMLElement) => {
     <div v-if="!isEmpty" class="text-container">
       <div class="translated-text-wrapper">
         <div ref="translatedTextRef" class="translated-text">
-          <pre>{{ translatedText }}</pre>
+          <span>{{ translatedText }}</span>
+          <span v-if="isRecording && translatedText && showCursor" class="cursor">|</span>
         </div>
       </div>
     </div>
@@ -138,13 +177,30 @@ const scrollToBottom = (element: HTMLElement) => {
   right: 0;
   bottom: 0;
   -webkit-overflow-scrolling: touch; /* 提升iOS滚动体验 */
+  scroll-behavior: smooth; /* 启用平滑滚动 */
+  will-change: transform; /* 性能优化，让浏览器为滚动创建独立图层 */
+  overflow-anchor: auto; /* 改进锚定滚动 */
+  overscroll-behavior: contain; /* 防止滚动传播到父元素 */
+  transform: translateZ(0); /* 触发硬件加速 */
+  backface-visibility: hidden; /* 进一步优化性能 */
+  perspective: 1000; /* 配合硬件加速 */
 }
 
-pre {
-  white-space: pre-wrap;
-  word-break: break-word;
-  margin: 0;
-  font-family: inherit;
+.source-text {
+  color: #000000;
+}
+
+.translated-text {
+  color: #000000;
+}
+
+/* 添加打字机光标效果 */
+.cursor {
+  display: inline-block;
+  color: #4169E1;
+  font-weight: bold;
+  margin-left: 2px;
+  animation: blink 1s step-end infinite;
 }
 
 .translation-status {
@@ -172,14 +228,6 @@ pre {
   background-color: rgba(0, 0, 0, 0.05);
   margin: 0;
   flex-shrink: 0;
-}
-
-.source-text {
-  color: #000000;
-}
-
-.translated-text {
-  color: #000000;
 }
 
 .translation-card.recording {

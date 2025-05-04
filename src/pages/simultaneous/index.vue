@@ -31,6 +31,10 @@ const {
   localSourceLanguage,
   localTargetLanguage,
   
+  // 打字机效果数据
+  displayedSource,
+  displayedTranslation,
+  
   // 方法
   toggleRecording,
   toggleTips,
@@ -116,8 +120,8 @@ onUnmounted(() => {
       <!-- 卡片容器 -->
       <TranslationCard 
         :is-recording="isTranslating"
-        :source-text="liveText"
-        :translated-text="liveTranslation"
+        :source-text="displayedSource"
+        :translated-text="displayedTranslation"
       />
     </div>
     
