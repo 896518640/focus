@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue';
+import { ref, watch, nextTick, computed } from 'vue';
 
 const props = defineProps({
   isRecording: {
@@ -15,6 +15,9 @@ const props = defineProps({
     default: ''
   }
 });
+
+// 计算是否为空状态
+const isEmpty = computed(() => !props.sourceText && !props.translatedText);
 
 // 引用元素，用于自动滚动
 const sourceTextRef = ref<HTMLElement | null>(null);
@@ -49,7 +52,7 @@ const scrollToBottom = (element: HTMLElement) => {
       </div>
     </div>
     
-    <div class="text-container">
+    <div v-if="!isEmpty" class="text-container">
       <div class="source-text-wrapper">
         <div ref="sourceTextRef" class="source-text">
           <pre>{{ sourceText }}</pre>
@@ -57,9 +60,15 @@ const scrollToBottom = (element: HTMLElement) => {
       </div>
     </div>
     
-    <div class="card-divider"></div>
+    <div v-if="isEmpty" class="empty-state">
+      <i class="fas fa-language empty-icon animate__animated animate__fadeIn" style="animation-delay: 0.5s;"></i>
+      <div class="empty-text animate__animated animate__fadeIn" style="animation-delay: 0.6s;">尚未开始翻译</div>
+      <div class="empty-subtext animate__animated animate__fadeIn" style="animation-delay: 0.7s;">点击下方按钮开始实时翻译</div>
+    </div>
     
-    <div class="text-container">
+    <div v-if="!isEmpty" class="card-divider"></div>
+    
+    <div v-if="!isEmpty" class="text-container">
       <div class="translated-text-wrapper">
         <div ref="translatedTextRef" class="translated-text">
           <pre>{{ translatedText }}</pre>
@@ -176,6 +185,37 @@ pre {
 .translation-card.recording {
   box-shadow: 0 4px 20px rgba(65, 105, 225, 0.1);
   animation: card-glow 2s infinite alternate;
+}
+
+/* 空状态样式 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  flex-grow: 1;
+  padding: 20px;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 48px;
+  color: #C7C7CC;
+  margin-bottom: 16px;
+}
+
+.empty-text {
+  font-size: 18px;
+  font-weight: 500;
+  color: #8E8E93;
+  margin-bottom: 8px;
+}
+
+.empty-subtext {
+  font-size: 14px;
+  color: #AEAEB2;
+  max-width: 240px;
+  line-height: 1.4;
 }
 
 @keyframes card-glow {

@@ -6,14 +6,14 @@ const router = useRouter();
 
 // 功能卡片数据
 const features = [
-  // { 
-  //   id: 'recognition', 
-  //   title: '实时语音识别', 
-  //   description: '将课堂讲解转为文本', 
-  //   icon: 'fa-microphone', 
-  //   color: '#FF2D55',
-  //   path: '/recognition'
-  // },
+  { 
+    id: 'recognition', 
+    title: '实时语音识别', 
+    description: '将课堂讲解转为文本', 
+    icon: 'fa-microphone', 
+    color: '#FF2D55',
+    path: '/recognition'
+  },
   // { 
   //   id: 'upload', 
   //   title: '录音上传', 
