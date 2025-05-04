@@ -3,7 +3,7 @@ import { showSuccessToast, showLoadingToast, closeToast, showFailToast } from 'v
 import { getTaskInfo } from '../../../api/tingwu/tingwu';
 import { saveTranslation as apiSaveTranslation } from '../../../api/translation/save';
 import type { Ref } from 'vue';
-
+import { useRouter } from 'vue-router';
 // 模拟保存翻译API
 const mockSaveTranslation = async (data: any) => {
   // 模拟网络请求延迟
@@ -55,6 +55,8 @@ export function useSaveTranslation(options: UseSaveTranslationOptions) {
   const isSaving = ref(false);
   // 暂停状态
   const isPaused = ref(false);
+
+  const router = useRouter();
 
   // 保存翻译内容
   const saveTranslation = async () => {
@@ -183,6 +185,8 @@ export function useSaveTranslation(options: UseSaveTranslationOptions) {
         // 如果API可用，使用真实API
         const response = await apiSaveTranslation(saveData);
         console.log('保存成功', response);
+        // 跳转到首页 
+        router.push('/');
       } catch (apiError) {
         console.warn('API调用失败，使用mock数据', apiError);
         // API不可用时，使用mock数据

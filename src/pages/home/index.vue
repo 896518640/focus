@@ -1,8 +1,18 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { getTranslationList, deleteTranslation, SaveTranslationParams, SaveTranslationResponse, TranslationListResponse, ApiResponse } from '@/api/translation/save';
 
 const router = useRouter();
+
+// 定义翻译记录项接口
+interface TranslationItem {
+  id: string;
+  title: string;
+  info: string;
+  icon: string;
+  recordData: SaveTranslationResponse & SaveTranslationParams;
+}
 
 // 功能卡片数据
 const features = [
@@ -57,31 +67,107 @@ const features = [
 ];
 
 // 最近使用数据
-const recentItems = ref([
-  {
-    id: 1,
-    title: '国际贸易课程摘要',
-    info: '生成了摘要 • 3月21日',
-    icon: 'fa-file-alt'
-  },
-  {
-    id: 2,
-    title: '经济学原理录音',
-    info: '完成转录 • 3月20日',
-    icon: 'fa-headphones'
-  },
-  {
-    id: 3,
-    title: '市场营销策略',
-    info: '完成翻译 • 3月18日',
-    icon: 'fa-language'
+const recentItems = ref<TranslationItem[]>([]);
+const isLoading = ref(false);
+
+// 错误处理状态
+const loadError = ref(false);
+const errorMessage = ref('');
+
+// 重试加载数据
+const retryLoading = async () => {
+  loadError.value = false;
+  errorMessage.value = '';
+  await loadTranslationRecords();
+};
+
+// 加载翻译记录列表
+const loadTranslationRecords = async () => {
+  try {
+    isLoading.value = true;
+    loadError.value = false;
+    errorMessage.value = '';
+    
+    const response = await getTranslationList(1, 5); // 获取最近5条记录
+    
+    if (response.data.success && response.data.data && response.data.data.list) {
+      // 格式化数据
+      recentItems.value = response.data.data.list.map((item) => {
+        // 格式化日期
+        const date = new Date(item.createdAt);
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        const dateStr = `${month}月${day}日`;
+        
+        // 确定图标
+        const icon = item.outputMp3Path ? 'fa-headset' : 'fa-language';
+        
+        return {
+          id: item.id,
+          title: item.title || '未命名翻译',
+          info: `${item.sourceLanguage} → ${item.targetLanguage} • ${dateStr}`,
+          icon: icon,
+          recordData: item // 保存原始数据，便于后续操作
+        };
+      });
+    } else {
+      loadError.value = true;
+      errorMessage.value = response.data.message || '获取数据失败，请稍后重试';
+      console.error('获取翻译记录失败:', response);
+    }
+  } catch (error) {
+    loadError.value = true;
+    errorMessage.value = '网络错误，请检查连接后重试';
+    console.error('加载翻译记录出错:', error);
+  } finally {
+    isLoading.value = false;
   }
-]);
+};
 
 // 跳转到功能页面
 const navigateToFeature = (path: string) => {
   router.push(path);
 };
+
+// 处理点击翻译记录项
+const handleRecordClick = (item: TranslationItem) => {
+  // 导航到详情页面，传递记录ID
+  router.push({
+    path: '/translation-detail',
+    query: { id: item.id }
+  });
+};
+
+// 删除翻译记录
+const handleDeleteRecord = async (id: string, event: Event) => {
+  event.stopPropagation(); // 阻止事件冒泡，避免触发项目点击事件
+  
+  try {
+    if (confirm('确定要删除这条翻译记录吗？')) {
+      const response = await deleteTranslation(id);
+      
+      if (response.data.success) {
+        // 删除成功后刷新列表
+        await loadTranslationRecords();
+      } else {
+        alert(response.data.message || '删除失败');
+      }
+    }
+  } catch (error) {
+    console.error('删除翻译记录失败:', error);
+    alert('删除失败，请稍后重试');
+  }
+};
+
+// 处理刷新按钮点击
+const handleRefresh = async () => {
+  await loadTranslationRecords();
+};
+
+// 组件挂载时加载数据
+onMounted(() => {
+  loadTranslationRecords();
+});
 </script>
 
 <template>
@@ -138,20 +224,47 @@ const navigateToFeature = (path: string) => {
       <div class="recent-section">
         <div class="section-header">
           <div class="section-title">最近使用</div>
-          <div class="section-more" @click="router.push('/history')">查看全部</div>
+          <div class="section-actions">
+            <button class="action-refresh" @click="handleRefresh" :disabled="isLoading">
+              <i class="fas fa-sync-alt" :class="{ 'fa-spin': isLoading }"></i>
+            </button>
+            <div class="section-more" @click="router.push('/history')">查看全部</div>
+          </div>
         </div>
         <div class="recent-list">
+          <div v-if="isLoading" class="loading-state">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>加载中...</span>
+          </div>
+          <div v-else-if="loadError" class="error-state">
+            <i class="fas fa-exclamation-circle"></i>
+            <span>{{ errorMessage }}</span>
+            <button class="retry-button" @click="retryLoading">
+              <i class="fas fa-redo"></i> 重试
+            </button>
+          </div>
+          <div v-else-if="recentItems.length === 0" class="empty-state">
+            <i class="fas fa-info-circle"></i>
+            <span>暂无记录</span>
+          </div>
           <div 
+            v-else
             v-for="item in recentItems" 
             :key="item.id" 
             class="recent-item"
+            @click="handleRecordClick(item)"
           >
-            <div class="recent-icon">
+            <div class="recent-icon" :style="{ backgroundColor: item.icon.includes('headset') ? '#4169E1' : '#FF3B30' }">
               <i :class="['fas', item.icon]"></i>
             </div>
             <div class="recent-content">
               <div class="recent-title">{{ item.title }}</div>
               <div class="recent-info">{{ item.info }}</div>
+            </div>
+            <div class="recent-actions">
+              <button class="action-button" @click="handleDeleteRecord(item.id, $event)">
+                <i class="fas fa-trash-alt"></i>
+              </button>
             </div>
           </div>
         </div>
@@ -335,6 +448,31 @@ const navigateToFeature = (path: string) => {
   color: #000000;
 }
 
+.section-actions {
+  display: flex;
+  align-items: center;
+}
+
+.action-refresh {
+  background: none;
+  border: none;
+  color: #007AFF;
+  cursor: pointer;
+  padding: 5px;
+  margin-right: 10px;
+  border-radius: 50%;
+  transition: background-color 0.2s ease;
+}
+
+.action-refresh:hover {
+  background-color: rgba(0, 122, 255, 0.1);
+}
+
+.action-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .section-more {
   font-size: 14px;
   color: #007AFF;
@@ -358,6 +496,7 @@ const navigateToFeature = (path: string) => {
   border-radius: 12px;
   background-color: #F5F5F5;
   transition: background-color 0.2s ease;
+  position: relative;
 }
 
 .recent-item:active {
@@ -389,10 +528,93 @@ const navigateToFeature = (path: string) => {
   font-weight: 500;
   color: #000000;
   margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
 }
 
 .recent-info {
   font-size: 13px;
   color: #8E8E93;
+}
+
+/* 新增样式 */
+.loading-state, .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 0;
+  color: #8E8E93;
+}
+
+.loading-state i, .empty-state i {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+.recent-actions {
+  position: absolute;
+  right: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.action-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.05);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FF3B30;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-button:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.action-button:active {
+  transform: scale(0.95);
+}
+
+/* 添加的新样式 */
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 0;
+  color: #FF3B30;
+}
+
+.error-state i {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+.retry-button {
+  margin-top: 15px;
+  padding: 8px 15px;
+  background-color: #007AFF;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.retry-button:hover {
+  background-color: #0062cc;
+}
+
+.retry-button:active {
+  transform: scale(0.98);
 }
 </style>

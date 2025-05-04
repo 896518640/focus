@@ -1,6 +1,20 @@
 import request from '@/utils/request';
 
 /**
+ * API统一响应接口
+ */
+export interface ApiResponse<T> {
+  /** 是否成功 */
+  success: boolean;
+  /** 消息 */
+  message: string;
+  /** 响应数据 */
+  data: T;
+  /** 时间戳 */
+  timestamp: string;
+}
+
+/**
  * 保存翻译记录接口参数
  */
 export interface SaveTranslationParams {
@@ -41,7 +55,23 @@ export interface SaveTranslationResponse {
   /** 更新时间 */
   updatedAt: string;
   /** 记录状态 */
-  status: 'success' | 'processing' | 'failed';
+  status: string;
+}
+
+/**
+ * 翻译记录列表响应
+ */
+export interface TranslationListResponse {
+  /** 总记录数 */
+  total: number;
+  /** 当前页码 */
+  page?: number;
+  /** 每页记录数 */
+  pageSize?: number;
+  /** 总页数 */
+  totalPages?: number;
+  /** 记录列表 */
+  list: Array<SaveTranslationResponse & SaveTranslationParams>;
 }
 
 /**
@@ -50,8 +80,8 @@ export interface SaveTranslationResponse {
  * @returns 保存结果
  */
 export function saveTranslation(params: SaveTranslationParams) {
-  return request<SaveTranslationResponse>({
-    url: '/api/translation/save',
+  return request<ApiResponse<SaveTranslationResponse>>({
+    url: '/api/v1/translation/save',
     method: 'POST',
     data: params
   });
@@ -64,11 +94,8 @@ export function saveTranslation(params: SaveTranslationParams) {
  * @returns 翻译记录列表
  */
 export function getTranslationList(page: number = 1, pageSize: number = 10) {
-  return request<{
-    total: number;
-    list: Array<SaveTranslationResponse & SaveTranslationParams>;
-  }>({
-    url: '/api/translation/list',
+  return request<ApiResponse<TranslationListResponse>>({
+    url: '/api/v1/translation/list',
     method: 'GET',
     params: { page, pageSize }
   });
@@ -80,8 +107,8 @@ export function getTranslationList(page: number = 1, pageSize: number = 10) {
  * @returns 翻译记录详情
  */
 export function getTranslationDetail(id: string) {
-  return request<SaveTranslationResponse & SaveTranslationParams>({
-    url: `/api/translation/detail/${id}`,
+  return request<ApiResponse<SaveTranslationResponse & SaveTranslationParams>>({
+    url: `/api/v1/translation/detail/${id}`,
     method: 'GET'
   });
 }
@@ -92,8 +119,8 @@ export function getTranslationDetail(id: string) {
  * @returns 操作结果
  */
 export function deleteTranslation(id: string) {
-  return request<{ success: boolean }>({
-    url: `/api/translation/delete/${id}`,
+  return request<ApiResponse<{ success: boolean }>>({
+    url: `/api/v1/translation/delete/${id}`,
     method: 'DELETE'
   });
 } 

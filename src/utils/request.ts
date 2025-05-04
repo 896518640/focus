@@ -2,7 +2,7 @@
 // 请求工具函数
 
 import axios from 'axios';
-
+import { getToken } from '@/utils/cache/cookies';
 /**
  * 获取API基础URL
  * @returns API基础URL
@@ -36,7 +36,7 @@ const request = axios.create({
 request.interceptors.request.use(
   config => {
     // 从localStorage获取token
-    const token = localStorage.getItem('token');
+    const token = getToken();
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
