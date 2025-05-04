@@ -86,9 +86,12 @@ export function useApiService(options: RealtimeTranslationOptions = {}) {
             transcription: {
               audioEventDetectionEnabled: true,
               outputLevel: 2, // 返回中间结果
-              diarization: {
+              diarization : {
                 speakerCount: 2
               }
+            },
+            transcoding: {
+              targetAudioFormat: 'mp3',
             },
             autoChaptersEnabled: false,
             meetingAssistanceEnabled: false,

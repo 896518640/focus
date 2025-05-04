@@ -25,6 +25,9 @@ export interface CreateTaskParams {
       };
       outputLevel: number;
     };
+    transcoding?: {
+      targetAudioFormat: string;
+    };
     autoChaptersEnabled: boolean;
     meetingAssistanceEnabled: boolean;
     meetingAssistance?: {

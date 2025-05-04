@@ -33,6 +33,8 @@ export interface RealtimeTranslationReturn {
   // 新增：语言配置
   sourceLanguage: Ref<string>
   targetLanguages: Ref<string[]>
+  // 新增：API任务ID
+  apiTaskId: Ref<string | null>
   
   // API方法
   initializeTask: (useExistingTask?: boolean) => Promise<void>

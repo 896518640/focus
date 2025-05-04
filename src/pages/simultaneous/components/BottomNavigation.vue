@@ -11,10 +11,14 @@ defineProps({
   isPaused: {
     type: Boolean,
     default: false
+  },
+  isSaving: {
+    type: Boolean,
+    default: false
   }
 });
 
-defineEmits(['toggleRecording', 'toggleSettings']);
+defineEmits(['toggleRecording', 'toggleSettings', 'saveTranslation']);
 </script>
 
 <template>
@@ -24,9 +28,9 @@ defineEmits(['toggleRecording', 'toggleSettings']);
       <span>悬浮字幕</span>
     </button>
     
-    <button class="bottom-button ripple-effect">
+    <button class="bottom-button ripple-effect" @click="$emit('saveTranslation')" :class="{ 'active': isSaving, 'disabled': !isRecording && !isPaused }">
       <i class="fas fa-save"></i>
-      <span>保存</span>
+      <span>{{ isSaving ? '保存中...' : '保存' }}</span>
     </button>
     
     <button 
@@ -184,5 +188,10 @@ defineEmits(['toggleRecording', 'toggleSettings']);
     transform: scale(1);
     box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3);
   }
+}
+
+.bottom-button.disabled {
+  opacity: 0.5;
+  pointer-events: none;
 }
 </style> 

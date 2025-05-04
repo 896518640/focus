@@ -822,6 +822,7 @@ export function useRealtimeTranslation(options: RealtimeTranslationOptions = {})
     translationResult,
     sourceLanguage,
     targetLanguages,
+    apiTaskId: apiService.taskId,
     
     // API
     initializeTask,
