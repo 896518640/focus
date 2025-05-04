@@ -22,6 +22,19 @@ export function useApiService(options: RealtimeTranslationOptions = {}) {
   // 合并配置
   const config = { ...defaultOptions, ...options }
   
+  // 语言设置
+  const sourceLanguage = ref(config.sourceLanguage)
+  const targetLanguages = ref<string[]>(config.targetLanguages || [])
+  
+  // 更新语言设置的方法
+  const updateLanguageSettings = (newSource: string, newTargets: string[]) => {
+    console.log(`API服务更新语言设置: 源=${newSource}, 目标=${newTargets.join(',')}`)
+    sourceLanguage.value = newSource
+    targetLanguages.value = newTargets
+    // 注意：这里只更新配置，不会重新创建任务
+    // 任务的重新创建应由调用方负责
+  }
+  
   // 初始化任务
   const initializeTask = async (useExistingTask: boolean = false) => {
     if (isInitialized.value && !useExistingTask) return
@@ -60,14 +73,14 @@ export function useApiService(options: RealtimeTranslationOptions = {}) {
           type: 'realtime',
           operation: 'start',
           input: {
-            sourceLanguage: config.sourceLanguage,
+            sourceLanguage: sourceLanguage.value, // 使用最新的语言设置
             format: config.audioFormat,
             sampleRate: config.sampleRate
           },
           parameters: {
-            translationEnabled: config.targetLanguages.length > 0,
-            translation: config.targetLanguages.length > 0 ? {
-              targetLanguages: config.targetLanguages,
+            translationEnabled: targetLanguages.value.length > 0,
+            translation: targetLanguages.value.length > 0 ? {
+              targetLanguages: targetLanguages.value, // 使用最新的目标语言设置
               outputLevel: 2 // 返回中间结果
             } : undefined,
             transcription: {
@@ -126,7 +139,7 @@ export function useApiService(options: RealtimeTranslationOptions = {}) {
         operation: 'stop',
         input: {
           taskId: taskId.value,
-          sourceLanguage: config.sourceLanguage
+          sourceLanguage: sourceLanguage.value // 使用最新的源语言设置
         },
         parameters: {
           translationEnabled: false,
@@ -161,7 +174,10 @@ export function useApiService(options: RealtimeTranslationOptions = {}) {
     isInitialized,
     isError,
     errorMessage,
+    sourceLanguage,
+    targetLanguages,
     initializeTask,
-    stopTask
+    stopTask,
+    updateLanguageSettings
   }
 } 

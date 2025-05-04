@@ -3,7 +3,7 @@ const emit = defineEmits(['goBack', 'source-language-change', 'target-language-c
 defineProps({
   sourceLanguage: {
     type: String,
-    default: 'zh'
+    default: 'cn'
   },
   targetLanguage: {
     type: String,
@@ -11,12 +11,15 @@ defineProps({
   }
 });
 
-// 语言映射表
+// 语言映射表中文（cn）、英语（en）、日语（ja）、韩语（ko）、德语（de）、法语（fr）、俄语（ru）。
 const languageMap: Record<string, string> = {
-  zh: '普通话 (简体中文)',
+  cn: '普通话 (简体中文)',
   en: '英语',
   ja: '日语',
-  ko: '韩语'
+  ko: '韩语',
+  de: '德语',
+  fr: '法语',
+  ru: '俄语'
 };
 
 // 获取语言显示名称
@@ -52,10 +55,13 @@ const handleTargetLanguageChange = (event: Event) => {
           :value="sourceLanguage"
           @change="handleSourceLanguageChange"
         >
-          <option value="zh">普通话 (简体中文)</option>
-          <option value="en">英语</option>
-          <option value="ja">日语</option>
-          <option value="ko">韩语</option>
+        <option value="cn">普通话 (简体中文)</option>
+        <option value="en">英语</option>
+        <option value="ja">日语</option>
+        <option value="ko">韩语</option>
+        <option value="de">德语</option>
+        <option value="fr">法语</option>
+        <option value="ru">俄语</option>
         </select>
         <span class="arrow">→</span>
         <select 
@@ -63,10 +69,13 @@ const handleTargetLanguageChange = (event: Event) => {
           :value="targetLanguage"
           @change="handleTargetLanguageChange"
         >
-          <option value="zh">普通话 (简体中文)</option>
-          <option value="en">英语</option>
-          <option value="ja">日语</option>
-          <option value="ko">韩语</option>
+        <option value="cn">普通话 (简体中文)</option>
+        <option value="en">英语</option>
+        <option value="ja">日语</option>
+        <option value="ko">韩语</option>
+        <option value="de">德语</option>
+        <option value="fr">法语</option>
+        <option value="ru">俄语</option>
         </select>
       </div>
     </div>

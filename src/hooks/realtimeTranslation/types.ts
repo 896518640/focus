@@ -30,6 +30,9 @@ export interface RealtimeTranslationReturn {
   errorMessage: Ref<string>
   transcriptionResult: Ref<string>
   translationResult: Ref<string>
+  // 新增：语言配置
+  sourceLanguage: Ref<string>
+  targetLanguages: Ref<string[]>
   
   // API方法
   initializeTask: (useExistingTask?: boolean) => Promise<void>
@@ -38,6 +41,9 @@ export interface RealtimeTranslationReturn {
   resumeTranslation: () => Promise<void>
   stopTranslation: (keepTaskAlive?: boolean) => Promise<void>
   clearResults: () => void
+  // 新增：语言控制方法
+  setSourceLanguage: (lang: string) => void
+  setTargetLanguages: (langs: string[]) => void
 }
 
 // 句子状态数据结构

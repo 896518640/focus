@@ -26,13 +26,19 @@ const {
   errorMessage,
   transcriptionResult,
   translationResult,
+  sourceLanguage,
+  targetLanguages,
   initializeTask,
   startTranslation,
   pauseTranslation,
   resumeTranslation,
   stopTranslation,
-  clearResults
+  clearResults,
+  setSourceLanguage,
+  setTargetLanguages
 } = useRealtimeTranslation({
+  sourceLanguage: 'cn',
+  targetLanguages: ['en'],
   autoStart: false,
   onTranscriptionResult: (text: string) => {
     liveText.value = text;
@@ -47,9 +53,16 @@ const isPageLeaving = ref(false);
 const isLoading = ref(false);
 const isPaused = ref(false);
 
-// 语言选择
-const sourceLanguage = ref('cn');
-const targetLanguage = ref('en');
+// 绑定语言选择到hooks中的值
+const localSourceLanguage = computed({
+  get: () => sourceLanguage.value,
+  set: (value) => handleSourceLanguageChange(value)
+});
+
+const localTargetLanguage = computed({
+  get: () => targetLanguages.value[0] || 'en',
+  set: (value) => handleTargetLanguageChange(value)
+});
 
 // 监听翻译结果变化
 watch(transcriptionResult, (newVal) => {
@@ -229,37 +242,6 @@ const micButtonLabel = computed(() => {
   }
 });
 
-// 设置源语言和目标语言
-const setSourceLanguage = (lang: string) => {
-  sourceLanguage.value = lang;
-  // 重新初始化翻译服务
-  if (isTranslating.value) {
-    stopTranslation();
-    stopTimer();
-    stopFallbackWaveform();
-    resetTimer();
-    clearResults();
-    
-    // 这里可以添加重新初始化任务的逻辑
-    // initializeTask(); 
-  }
-};
-
-const setTargetLanguage = (lang: string) => {
-  targetLanguage.value = lang;
-  // 重新初始化翻译服务
-  if (isTranslating.value) {
-    stopTranslation();
-    stopTimer();
-    stopFallbackWaveform();
-    resetTimer();
-    clearResults();
-    
-    // 这里可以添加重新初始化任务的逻辑
-    // initializeTask();
-  }
-};
-
 // 清理函数
 const cleanup = () => {
   // 停止翻译服务
@@ -328,7 +310,7 @@ const handleSourceLanguageChange = (newLang: string) => {
 };
 
 const handleTargetLanguageChange = (newLang: string) => {
-  setTargetLanguage(newLang);
+  setTargetLanguages([newLang]);
 };
 </script>
 
@@ -337,8 +319,8 @@ const handleTargetLanguageChange = (newLang: string) => {
     <!-- 顶部导航栏 -->
     <PageHeader 
       @go-back="goBack"
-      :source-language="sourceLanguage"
-      :target-language="targetLanguage"
+      :source-language="localSourceLanguage"
+      :target-language="localTargetLanguage"
       @source-language-change="handleSourceLanguageChange"
       @target-language-change="handleTargetLanguageChange"
       class="animate__animated animate__fadeInDown page-element"

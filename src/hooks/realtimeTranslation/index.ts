@@ -1,4 +1,4 @@
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useUserStore } from '@/composables/useUserStore'
 import { RealtimeTranslationOptions, RealtimeTranslationReturn } from './types'
 import { useWebSocket } from './useWebSocket'
@@ -28,6 +28,20 @@ export function useRealtimeTranslation(options: RealtimeTranslationOptions = {})
   // 合并配置
   const config = { ...defaultOptions, ...options }
   
+  // 反应式语言配置
+  const sourceLanguage = ref(config.sourceLanguage)
+  const targetLanguages = ref<string[]>(config.targetLanguages)
+  
+  // 监听源语言变化
+  watch(() => options.sourceLanguage, (newValue) => {
+    if (newValue) sourceLanguage.value = newValue
+  }, { immediate: true })
+  
+  // 监听目标语言变化
+  watch(() => options.targetLanguages, (newValue) => {
+    if (newValue) targetLanguages.value = newValue
+  }, { immediate: true })
+  
   // 状态
   const isConnecting = ref(false)
   const isTranslating = ref(false)
@@ -40,9 +54,16 @@ export function useRealtimeTranslation(options: RealtimeTranslationOptions = {})
   const transcriptionResult = ref('')
   const translationResult = ref('')
   
+  // 上次语言设置，用于检测变化
+  const lastSourceLang = ref(sourceLanguage.value)
+  const lastTargetLangs = ref<string[]>([...targetLanguages.value])
+  
   // 1. 初始化API服务
   const apiService = useApiService({
-    ...config,
+    sourceLanguage: sourceLanguage.value,
+    targetLanguages: targetLanguages.value,
+    audioFormat: config.audioFormat,
+    sampleRate: config.sampleRate,
     onError: (error) => {
       if (options.onError) options.onError(error)
     }
@@ -89,6 +110,56 @@ export function useRealtimeTranslation(options: RealtimeTranslationOptions = {})
     // 添加转写完成回调
     onTranscriptionCompleted: handleTranscriptionCompleted
   });
+  
+  // 监听源语言变化
+  watch(sourceLanguage, (newSource) => {
+    if (newSource !== lastSourceLang.value) {
+      handleLanguageChange();
+      lastSourceLang.value = newSource;
+    }
+  });
+  
+  // 监听目标语言变化
+  watch(targetLanguages, (newTargets) => {
+    if (JSON.stringify(newTargets) !== JSON.stringify(lastTargetLangs.value)) {
+      handleLanguageChange();
+      lastTargetLangs.value = [...newTargets];
+    }
+  });
+  
+  // 处理语言变化的函数
+  async function handleLanguageChange() {
+    console.log(`语言设置已更新: 源=${sourceLanguage.value}, 目标=${targetLanguages.value.join(',')}`);
+    
+    // 如果正在翻译，需要重启任务
+    if (isTranslating.value) {
+      console.log('正在翻译中，需要重启任务以应用新的语言设置');
+      
+      // 保存当前结果
+      if (transcriptionResult.value || translationResult.value) {
+        sessionManager.setPreservedHistory(transcriptionResult.value, translationResult.value);
+        chapterManager.addChapterHistory(transcriptionResult.value, translationResult.value);
+      }
+      
+      // 重启任务，使用新的语言设置
+      try {
+        await stopTranslation(false);
+        
+        // 更新API服务的语言设置
+        apiService.updateLanguageSettings(sourceLanguage.value, targetLanguages.value);
+        
+        // 延迟一点时间再重启，确保资源被正确释放
+        setTimeout(() => {
+          startTranslation();
+        }, 1000);
+      } catch (error) {
+        console.error('重启翻译任务失败:', error);
+      }
+    } else {
+      // 不在翻译中，只需更新API服务的语言设置
+      apiService.updateLanguageSettings(sourceLanguage.value, targetLanguages.value);
+    }
+  }
   
   // 6. 初始化WebSocket
   const webSocket = useWebSocket({
@@ -341,17 +412,17 @@ export function useRealtimeTranslation(options: RealtimeTranslationOptions = {})
     }
   }
   
-  // 发送开始转写命令
+  // 更新发送开始转写命令，使用最新的语言设置
   function sendStartTranscription() {
     const startMessage = messageHandler.createStartTranscriptionMessage({
-      sourceLanguage: config.sourceLanguage,
+      sourceLanguage: sourceLanguage.value,
       audioFormat: config.audioFormat,
       sampleRate: config.sampleRate
     })
     
     webSocket.sendMessage(startMessage)
     isTranslating.value = true
-    console.log('已发送开始转写命令')
+    console.log(`已发送开始转写命令，源语言: ${sourceLanguage.value}`)
   }
   
   // 发送停止转写命令
@@ -688,6 +759,20 @@ export function useRealtimeTranslation(options: RealtimeTranslationOptions = {})
     console.log('已清空转写和翻译结果，并重置会话状态和章节计数')
   }
   
+  // 设置源语言
+  const setSourceLanguage = (lang: string) => {
+    sourceLanguage.value = lang
+    console.log(`已设置源语言为: ${lang}`)
+    // handleLanguageChange 会通过 watch 自动触发
+  }
+  
+  // 设置目标语言
+  const setTargetLanguages = (langs: string[]) => {
+    targetLanguages.value = langs
+    console.log(`已设置目标语言为: ${langs.join(',')}`)
+    // handleLanguageChange 会通过 watch 自动触发
+  }
+  
   // 自动初始化
   onMounted(() => {
     if (config.autoStart) {
@@ -711,6 +796,8 @@ export function useRealtimeTranslation(options: RealtimeTranslationOptions = {})
     errorMessage: apiService.errorMessage,
     transcriptionResult,
     translationResult,
+    sourceLanguage,
+    targetLanguages,
     
     // API
     initializeTask,
@@ -718,7 +805,9 @@ export function useRealtimeTranslation(options: RealtimeTranslationOptions = {})
     pauseTranslation,
     resumeTranslation,
     stopTranslation,
-    clearResults
+    clearResults,
+    setSourceLanguage,
+    setTargetLanguages
   }
 }
 

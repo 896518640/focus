@@ -507,7 +507,7 @@ export function useMessageHandler(options: {
       header: {
         name: "StartTranscription",
         namespace: "SpeechTranscriber",
-        appkey: config.sourceLanguage
+        appkey: ""  // appkey 应该由服务端负责
       },
       payload: {
         format: config.audioFormat,
@@ -515,6 +515,7 @@ export function useMessageHandler(options: {
         enable_intermediate_result: true,
         enable_punctuation_prediction: true,
         enable_inverse_text_normalization: true,
+        source_language: config.sourceLanguage, // 正确地设置源语言
         max_speaking_length: 60000,
         speech_timeout: 60000,
         ping_interval: 8000, // 心跳间隔参数
