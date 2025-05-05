@@ -56,14 +56,14 @@ const features = [
     color: '#4169E1',
     path: '/simultaneous'
   },
-  { 
-    id: 'translate-demo', 
-    title: '实时翻译演示', 
-    description: '通义听悟API实时翻译', 
-    icon: 'fa-language', 
-    color: '#FF3B30',
-    path: '/translate-demo'
-  }
+  // { 
+  //   id: 'translate-demo', 
+  //   title: '实时翻译演示', 
+  //   description: '通义听悟API实时翻译', 
+  //   icon: 'fa-language', 
+  //   color: '#FF3B30',
+  //   path: '/translate-demo'
+  // }
 ];
 
 // 最近使用数据

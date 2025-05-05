@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 import { useUserStore } from '@/pinia/stores/user';
 import { showToast, showLoadingToast, closeToast } from 'vant';
 import { getUserProfileApi, updateUserProfileApi } from '@/api/users';
-import SimultaneousSettings from '@/components/SimultaneousSettings.vue';
+import TranslationSettings from '@/components/common/TranslationSettings.vue';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -461,10 +461,11 @@ onMounted(async () => {
     </div>
     
     <!-- 同传设置弹窗 -->
-    <SimultaneousSettings
+    <TranslationSettings
       v-model:show="showSimultaneousSettings"
       :source-language="sourceLanguage"
       :target-language="targetLanguage"
+      title="同传设置"
       @source-language-change="handleSourceLanguageChange"
       @target-language-change="handleTargetLanguageChange"
     />

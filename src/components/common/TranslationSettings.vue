@@ -13,6 +13,10 @@ const props = defineProps({
   targetLanguage: {
     type: String,
     default: 'en'
+  },
+  title: {
+    type: String,
+    default: '翻译设置'
   }
 });
 
@@ -20,10 +24,8 @@ const emit = defineEmits(['update:show', 'source-language-change', 'target-langu
 
 // 翻译开启的开关
 const translationEnabled = ref(true);
-// 是否记住设置
-const rememberSettings = ref(false);
 
-// 当前选择的语言
+// 当前选择的语言，使用string字符串类型
 const currentSourceLanguage = ref('');
 const currentTargetLanguage = ref('');
 
@@ -55,10 +57,6 @@ onMounted(() => {
       
       if (settings.translationEnabled !== undefined) {
         translationEnabled.value = settings.translationEnabled;
-      }
-
-      if (settings.rememberSettings !== undefined) {
-        rememberSettings.value = settings.rememberSettings;
       }
     }
   } catch (error) {
@@ -102,7 +100,7 @@ const selectSourceLanguage = (code: string) => {
   currentSourceLanguage.value = code;
   emit('source-language-change', code);
   
-  // 添加触觉反馈
+  // 添加触觉反馈 (如果设备支持)
   if (navigator.vibrate) {
     navigator.vibrate(5);
   }
@@ -113,7 +111,7 @@ const selectTargetLanguage = (code: string) => {
   currentTargetLanguage.value = code;
   emit('target-language-change', code);
   
-  // 添加触觉反馈
+  // 添加触觉反馈 (如果设备支持)
   if (navigator.vibrate) {
     navigator.vibrate(5);
   }
@@ -123,21 +121,7 @@ const selectTargetLanguage = (code: string) => {
 const toggleTranslation = () => {
   translationEnabled.value = !translationEnabled.value;
   
-  // 添加触觉反馈
-  if (navigator.vibrate) {
-    navigator.vibrate(5);
-  }
-};
-
-// 切换记住设置开关
-const toggleRememberSettings = () => {
-  rememberSettings.value = !rememberSettings.value;
-  
-  if (rememberSettings.value) {
-    saveSettings();
-  }
-  
-  // 添加触觉反馈
+  // 添加触觉反馈 (如果设备支持)
   if (navigator.vibrate) {
     navigator.vibrate(5);
   }
@@ -150,8 +134,7 @@ const saveSettings = () => {
     const settings = {
       sourceLanguage: currentSourceLanguage.value,
       targetLanguage: currentTargetLanguage.value,
-      translationEnabled: translationEnabled.value,
-      rememberSettings: rememberSettings.value
+      translationEnabled: translationEnabled.value
     };
     
     // 保存到localStorage
@@ -160,7 +143,7 @@ const saveSettings = () => {
     // 显示保存成功状态
     isSaved.value = true;
     
-    // 添加触觉反馈
+    // 添加触觉反馈 (如果设备支持)
     if (navigator.vibrate) {
       navigator.vibrate([10, 50, 10]);
     }
@@ -177,74 +160,72 @@ const saveSettings = () => {
 </script>
 
 <template>
-  <div class="settings-popup-overlay" v-if="show" @click="closePopup"></div>
-  <div class="settings-popup" :class="{ 'show': show }">
-    <div class="settings-header">
-      <div class="settings-title">同传设置</div>
-      <button class="close-btn" @click="closePopup">
-        <i class="fas fa-times"></i>
-      </button>
-    </div>
-    
-    <div class="settings-content">
-      <div class="source-language-section">
-        <div class="section-title">声音来源</div>
-        <div class="language-options">
-          <button 
-            v-for="option in languageOptions" 
-            :key="option.code"
-            class="language-option"
-            :class="{ 'active': currentSourceLanguage === option.code }"
-            @click="selectSourceLanguage(option.code)"
-          >
-            {{ option.name }}
-          </button>
-        </div>
+  <teleport to="body">
+    <div class="settings-popup-overlay" v-if="show" @click="closePopup"></div>
+    <div class="settings-popup" :class="{ 'show': show }">
+      <div class="settings-header">
+        <div class="settings-title">{{ title }}</div>
+        <button class="close-btn" @click="closePopup">
+          <i class="fas fa-times"></i>
+        </button>
       </div>
       
-      <div class="settings-divider"></div>
-      
-      <div class="target-language-section">
-        <div class="section-title">目标语言</div>
-        <div class="language-options">
-          <button 
-            v-for="option in languageOptions" 
-            :key="option.code"
-            class="language-option"
-            :class="{ 'active': currentTargetLanguage === option.code }"
-            @click="selectTargetLanguage(option.code)"
-          >
-            {{ option.name }}
-          </button>
+      <div class="settings-content">
+        <div class="source-language-section">
+          <div class="section-title">声音来源</div>
+          <div class="language-options">
+            <button 
+              v-for="option in languageOptions" 
+              :key="option.code"
+              class="language-option"
+              :class="{ 'active': currentSourceLanguage === option.code }"
+              @click="selectSourceLanguage(option.code)"
+            >
+              {{ option.name }}
+            </button>
+          </div>
         </div>
-      </div>
-      
-      <div class="settings-divider"></div>
-      
-      <div class="switch-section">
-        <div class="switch-label">开启翻译</div>
-        <div class="toggle-switch" :class="{ 'active': translationEnabled }" @click="toggleTranslation">
-          <div class="toggle-button"></div>
+        
+        <div class="settings-divider"></div>
+        
+        <div class="target-language-section">
+          <div class="section-title">目标语言</div>
+          <div class="language-options">
+            <button 
+              v-for="option in languageOptions" 
+              :key="option.code"
+              class="language-option"
+              :class="{ 'active': currentTargetLanguage === option.code }"
+              @click="selectTargetLanguage(option.code)"
+            >
+              {{ option.name }}
+            </button>
+          </div>
         </div>
-      </div>
-      
-      <div class="settings-divider"></div>
-      
-      <div class="settings-footer">
-        <div class="remember-settings">
-          <div class="switch-label">记住设置</div>
-          <div class="toggle-switch" :class="{ 'active': rememberSettings }" @click="toggleRememberSettings">
+        
+        <div class="settings-divider"></div>
+        
+        <div class="switch-section">
+          <div class="switch-label">开启翻译</div>
+          <div class="toggle-switch" :class="{ 'active': translationEnabled }" @click="toggleTranslation">
             <div class="toggle-button"></div>
           </div>
         </div>
         
-        <div class="settings-info">
-          <i class="fas fa-info-circle"></i>
-          <span>选择正确的声音来源语言可以提高翻译质量</span>
+        <div class="settings-divider"></div>
+        
+        <div class="settings-footer">
+          <div class="settings-info">
+            <i class="fas fa-info-circle"></i>
+            <span>选择正确的声音来源语言可以提高翻译质量</span>
+          </div>
+          <button class="remember-btn" @click="saveSettings" :class="{ 'saved': isSaved }">
+            {{ isSaved ? '设置已保存' : '记住设置' }}
+          </button>
         </div>
       </div>
     </div>
-  </div>
+  </teleport>
 </template>
 
 <style scoped>
@@ -258,7 +239,7 @@ const saveSettings = () => {
   background-color: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  z-index: 1000;
+  z-index: 9998;
   animation: fadeIn 0.2s ease;
 }
 
@@ -268,58 +249,65 @@ const saveSettings = () => {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%) scale(0.9);
-  z-index: 1001;
+  z-index: 9999;
   background-color: #F2F2F7;
   border-radius: 16px;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
   padding-bottom: 16px;
+  max-height: 80vh;
   width: 90%;
   max-width: 400px;
-  max-height: 80vh;
   overflow-y: auto;
   opacity: 0;
-  visibility: hidden;
-  transition: all 0.3s ease;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+  pointer-events: none;
 }
 
 .settings-popup.show {
-  opacity: 1;
-  visibility: visible;
   transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .settings-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
+  position: relative;
+  background-color: #F2F2F7;
+  border-bottom: 0.5px solid rgba(0, 0, 0, 0.1);
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
   padding: 16px;
-  border-bottom: 1px solid rgba(60, 60, 67, 0.1);
 }
 
 .settings-title {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
   color: #000000;
 }
 
 .close-btn {
-  width: 32px;
-  height: 32px;
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #8E8E93;
+  font-size: 17px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(60, 60, 67, 0.1);
-  border: none;
-  color: #000000;
-  font-size: 16px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease;
 }
 
 .close-btn:active {
-  background-color: rgba(60, 60, 67, 0.2);
-  transform: scale(0.95);
+  background-color: rgba(142, 142, 147, 0.1);
 }
 
 .settings-content {
@@ -327,66 +315,66 @@ const saveSettings = () => {
 }
 
 .section-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: #000000;
   margin-bottom: 12px;
 }
 
+.settings-divider {
+  height: 0.5px;
+  background-color: rgba(0, 0, 0, 0.1);
+  margin: 24px 0;
+}
+
 .language-options {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 16px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .language-option {
-  padding: 8px 16px;
-  border-radius: 16px;
-  background-color: rgba(142, 142, 147, 0.1);
-  color: #000000;
-  font-size: 14px;
+  background-color: #FFFFFF;
   border: none;
-  cursor: pointer;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 15px;
+  color: #000000;
   transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.language-option:active {
+  transform: scale(0.96);
+  opacity: 0.8;
 }
 
 .language-option.active {
   background-color: #007AFF;
   color: #FFFFFF;
-  box-shadow: 0 2px 6px rgba(0, 122, 255, 0.3);
-}
-
-.language-option:active {
-  transform: scale(0.95);
-}
-
-.settings-divider {
-  height: 1px;
-  background-color: rgba(60, 60, 67, 0.1);
-  margin: 16px 0;
+  font-weight: 500;
 }
 
 .switch-section {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
 }
 
 .switch-label {
-  font-size: 16px;
+  font-size: 17px;
   color: #000000;
 }
 
 .toggle-switch {
   width: 51px;
   height: 31px;
+  background-color: rgba(120, 120, 128, 0.16);
   border-radius: 31px;
-  background-color: rgba(142, 142, 147, 0.2);
   position: relative;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: background-color 0.2s ease;
 }
 
 .toggle-switch.active {
@@ -394,15 +382,15 @@ const saveSettings = () => {
 }
 
 .toggle-button {
+  width: 27px;
+  height: 27px;
+  background-color: #FFFFFF;
+  border-radius: 50%;
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 27px;
-  height: 27px;
-  border-radius: 50%;
-  background-color: #FFFFFF;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .toggle-switch.active .toggle-button {
@@ -410,49 +398,74 @@ const saveSettings = () => {
 }
 
 .settings-footer {
-  margin-top: 16px;
-}
-
-.remember-settings {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .settings-info {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
-  padding: 12px;
-  border-radius: 8px;
-  background-color: rgba(0, 122, 255, 0.1);
-  font-size: 14px;
-  color: #007AFF;
+  color: #8E8E93;
+  font-size: 13px;
 }
 
 .settings-info i {
-  font-size: 16px;
+  font-size: 15px;
+  color: #007AFF;
+}
+
+.remember-btn {
+  width: 100%;
+  background-color: #007AFF;
+  color: #FFFFFF;
+  font-size: 17px;
+  font-weight: 500;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 0;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease, background-color 0.3s ease;
+}
+
+.remember-btn:active {
+  transform: scale(0.98);
+  opacity: 0.8;
+}
+
+.remember-btn.saved {
+  background-color: #34C759;
 }
 
 /* 动画 */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-@keyframes scaleIn {
-  from {
-    transform: translate(-50%, -50%) scale(0.9);
-    opacity: 0;
+/* 适配小屏幕 */
+@media (max-width: 375px) {
+  .language-option {
+    padding: 8px 12px;
+    font-size: 14px;
   }
-  to {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 1;
+  
+  .section-title {
+    font-size: 14px;
+  }
+  
+  .switch-label {
+    font-size: 16px;
+  }
+  
+  .settings-info {
+    font-size: 12px;
+  }
+  
+  .remember-btn {
+    font-size: 16px;
+    padding: 10px 0;
   }
 }
 </style> 
