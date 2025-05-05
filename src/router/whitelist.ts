@@ -10,7 +10,9 @@ const whiteListByPath: string[] = [
   "/rtasr",
   "/about",
   "/help",
-  "/translate-demo"
+  "/translate-demo",
+  "/translation-detail",
+  "/translation-ai-summary"
 ]
 
 /** 免登录白名单（匹配路由 name） */

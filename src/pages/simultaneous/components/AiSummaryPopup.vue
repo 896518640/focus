@@ -117,25 +117,6 @@ const getProgressStyle = () => {
       </div>
       
       <div class="popup-body">
-        <!-- 加载状态 -->
-        <!-- <div v-if="loading && !displayedContent" class="loading-state">
-          <div class="spinner"></div>
-          <p>AI正在总结中，请稍候...</p>
-        </div> -->
-        
-        <!-- 流式加载进度指示器 -->
-        <!-- <div v-if="loading && displayedContent && !isStreamComplete" class="stream-progress">
-          <svg class="progress-circle" width="46" height="46" viewBox="0 0 46 46">
-            <circle class="progress-circle-bg" cx="23" cy="23" r="20" />
-            <circle class="progress-circle-path" cx="23" cy="23" r="20" 
-              :style="getProgressStyle()" />
-          </svg>
-          <span v-if="progressPercentage">{{ progressPercentage }}%</span>
-          <button class="stop-stream-button" @click="handleStopStream">
-            <i class="fas fa-stop"></i>
-          </button>
-        </div> -->
-        
         <!-- 错误状态 -->
         <div v-if="error" class="error-state">
           <i class="fas fa-exclamation-circle"></i>

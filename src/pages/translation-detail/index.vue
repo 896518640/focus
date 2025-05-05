@@ -6,9 +6,10 @@
         <i class="fas fa-chevron-left"></i>
       </button>
       <div class="header-title">预览</div>
-      <div class="ai-badge">
-        <i class="fas fa-star-half-alt"></i> AI
-      </div>
+      <button class="ai-button" @click="navigateToAiSummary">
+        <i class="fas fa-robot"></i>
+        <span>AI总结</span>
+      </button>
     </div>
     
     <!-- 加载状态 -->
@@ -454,6 +455,21 @@ const shareTranslation = () => {
     .then(() => showToast('已复制到剪贴板，可以分享给他人'))
     .catch(() => showToast('复制失败，请手动复制'));
 };
+
+// 跳转至AI总结页面
+const navigateToAiSummary = () => {
+  // 将当前翻译数据ID作为参数传递给AI总结页面
+  const id = route.query.id as string;
+  if (!id) {
+    showToast('缺少翻译记录ID');
+    return;
+  }
+  
+  router.push({
+    path: '/translation-ai-summary',
+    query: { id }
+  });
+};
 </script>
 
 <style scoped>
@@ -577,19 +593,28 @@ const shareTranslation = () => {
   flex: 1;
 }
 
-.ai-badge {
+.ai-button {
   display: flex;
   align-items: center;
-  padding: 6px 12px;
-  background-color: rgba(255, 69, 0, 0.1);
+  padding: 8px 14px;
   border-radius: 16px;
-  color: #FF4500;
-  font-weight: 600;
+  background-color: rgba(0, 122, 255, 0.1);
+  color: #007AFF;
   font-size: 14px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.ai-badge i {
+.ai-button i {
   margin-right: 4px;
+  font-size: 12px;
+}
+
+.ai-button:active {
+  transform: scale(0.95);
+  background-color: rgba(0, 122, 255, 0.2);
 }
 
 /* 标题部分 */

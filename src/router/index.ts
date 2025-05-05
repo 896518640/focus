@@ -104,6 +104,15 @@ export const routes: RouteRecordRaw[] = [
           title: "翻译详情",
           showNav: false
         }
+      },
+      {
+        path: "/translation-ai-summary",
+        name: "TranslationAiSummary",
+        component: () => import("@/pages/translation-ai-summary/index.vue"),
+        meta: {
+          title: "AI总结",
+          showNav: false
+        }
       }
     ]
   },
