@@ -6,7 +6,7 @@ import { useWaveform } from './useWaveform';
 import { useRecordingControl } from './useRecordingControl';
 import { useSaveTranslation } from './useSaveTranslation';
 import { useTextEffect } from './useTextEffect';
-import { showToast } from 'vant';
+import { showToast, type ToastType } from 'vant';
 
 interface UseSimultaneousTranslationOptions {
   sourceLanguage?: string;
@@ -17,6 +17,19 @@ interface UseSimultaneousTranslationOptions {
   maxTypingSpeed?: number; // 最大打字速度
   characterVariation?: boolean; // 是否启用字符变化的随机速度
   offlineMode?: boolean; // 是否启用离线模式
+}
+
+// 定义翻译映射接口
+interface TranslationMap {
+  [key: string]: string;
+}
+
+interface LanguagePhrasesMap {
+  [key: string]: TranslationMap;
+}
+
+interface CommonPhrasesMap {
+  [language: string]: LanguagePhrasesMap;
 }
 
 export function useSimultaneousTranslation(options?: UseSimultaneousTranslationOptions) {
@@ -52,7 +65,7 @@ export function useSimultaneousTranslation(options?: UseSimultaneousTranslationO
       if (isNetworkError.value) {
         showToast({
           message: '网络已恢复，可以继续翻译',
-          type: 'success',
+          type: 'success' as ToastType,
           position: 'top'
         });
         isNetworkError.value = false;
@@ -68,7 +81,7 @@ export function useSimultaneousTranslation(options?: UseSimultaneousTranslationO
         isNetworkError.value = true;
         showToast({
           message: '网络连接已断开，将尝试保存当前翻译',
-          type: 'warning',
+          type: 'warning' as ToastType,
           position: 'top'
         });
       }
@@ -179,7 +192,7 @@ export function useSimultaneousTranslation(options?: UseSimultaneousTranslationO
     // 2. 使用已缓存的翻译对来匹配相似文本
     // 3. 对常用词组预先翻译并存储
     
-    const commonPhrases: Record<string, Record<string, string>> = {
+    const commonPhrases: CommonPhrasesMap = {
       'cn': {
         '你好': { 'en': 'Hello', 'ja': 'こんにちは', 'ko': '안녕하세요' },
         '谢谢': { 'en': 'Thank you', 'ja': 'ありがとう', 'ko': '감사합니다' },
@@ -237,11 +250,12 @@ export function useSimultaneousTranslation(options?: UseSimultaneousTranslationO
   } = useWaveform();
   
   // 重写startTranslation以支持离线模式
-  const startTranslation = () => {
+  const startTranslation = async (): Promise<void> => {
     if (isOfflineMode.value || !isOnline.value) {
       // 离线模式下直接开始录音但不连接API
       console.log('以离线模式开始翻译');
-      return true;
+      // 返回一个已解决的Promise，保持类型一致
+      return Promise.resolve();
     } else {
       // 在线模式下使用原始函数
       return startTranslationOriginal();

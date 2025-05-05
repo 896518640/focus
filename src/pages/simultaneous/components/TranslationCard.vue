@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, computed, onUnmounted } from 'vue';
-import TextToSpeech from '@/components/common/TextToSpeech.vue';
+// import TextToSpeech from '@/components/common/TextToSpeech.vue';
 
 const props = defineProps({
   isRecording: {
@@ -116,7 +116,7 @@ onUnmounted(() => {
       </div>
     </div>
     
-    <div class="translation-section">
+    <!-- <div class="translation-section">
       <div class="section-header">
         <div class="header-title">{{ targetLanguageLabel }}</div>
         <div class="tts-container">
@@ -147,7 +147,7 @@ onUnmounted(() => {
           </TextToSpeech>
         </div>
       </div>
-    </div>
+    </div> -->
   </div>
 </template>
 
