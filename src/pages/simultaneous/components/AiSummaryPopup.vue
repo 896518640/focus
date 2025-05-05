@@ -76,12 +76,27 @@ const copySummary = () => {
 
 // 点击重新生成总结
 const handleRegenerateSummary = () => {
+  console.log('重新生成总结 - 发送get-summary事件');
   emit('get-summary');
 };
 
 // 停止流式输出
 const handleStopStream = () => {
+  console.log('停止生成 - 发送stop-stream事件');
   emit('stop-stream');
+};
+
+// 处理主操作按钮点击（停止生成或重新生成）
+const handleActionButton = () => {
+  console.log('主按钮被点击 - loading:', props.loading, 'isStreamComplete:', props.isStreamComplete);
+  
+  if (props.loading && !props.isStreamComplete) {
+    console.log('当前状态：正在生成中，执行停止生成');
+    handleStopStream();
+  } else {
+    console.log('当前状态：未生成或已完成，执行重新生成');
+    handleRegenerateSummary();
+  }
 };
 
 // 跳过打字机动画，直接显示全部内容
@@ -150,7 +165,7 @@ const getProgressStyle = () => {
             </button>
             <button 
               class="action-button primary-button" 
-              @click="loading && !isStreamComplete ? handleStopStream : handleRegenerateSummary"
+              @click="handleActionButton"
             >
               <i :class="['fas', loading && !isStreamComplete ? 'fa-stop' : 'fa-sync-alt']"></i>
               <span>{{ loading && !isStreamComplete ? '停止生成' : '重新生成' }}</span>

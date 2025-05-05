@@ -115,6 +115,8 @@ onUnmounted(() => {
 
 // 生成模拟摘要
 const generateMockSummary = () => {
+  console.log('生成模拟摘要被调用');
+  
   if (!liveTranslation.value) {
     showToast('没有可用的翻译内容');
     return;
@@ -131,6 +133,7 @@ const generateMockSummary = () => {
 
 总体来说，该内容提出了一个有价值的解决方案框架，值得进一步深入研究和开发。`;
 
+  console.log('开始模拟流式响应');
   simulateStreamResponse(mockText);
 };
 </script>

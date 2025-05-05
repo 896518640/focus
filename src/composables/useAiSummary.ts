@@ -124,30 +124,107 @@ export function useAiSummary(options: UseAiSummaryOptions = {}) {
    * @param text 模拟的总结文本
    */
   const simulateStreamResponse = async (text: string) => {
+    console.log('开始模拟流式响应，总长度:', text.length);
+    
+    // 重置状态
+    loading.value = true;
+    error.value = '';
+    summaryContent.value = '';
+    isStreamComplete.value = false;
+    progressPercentage.value = 0;
+    
     const chunkSize = 1; // 每次发送的字符数
     const minDelay = 30; // 最小延迟（毫秒）
     const maxDelay = 100; // 最大延迟（毫秒）
     
-    summaryContent.value = '';
+    try {
+      for (let i = 0; i < text.length; i += chunkSize) {
+        // 检查是否被取消
+        if (!loading.value) {
+          console.log('模拟流被取消，在位置', i);
+          break;
+        }
+        
+        const chunk = text.slice(i, i + chunkSize);
+        
+        // 等待随机延迟
+        const delay = Math.floor(Math.random() * (maxDelay - minDelay)) + minDelay;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        // 更新完整内容（同时会触发打字机效果）
+        summaryContent.value += chunk;
+        
+        // 更新进度
+        progressPercentage.value = Math.round((i / text.length) * 100);
+      }
+      
+      // 只有在未被取消的情况下才标记为完成
+      if (loading.value) {
+        console.log('模拟流响应完成');
+        // 标记完成
+        loading.value = false;
+        isStreamComplete.value = true;
+        progressPercentage.value = 100;
+      }
+    } catch (err) {
+      console.error('模拟流式响应出错:', err);
+      loading.value = false;
+      error.value = '模拟响应生成失败';
+      
+      showFailToast({
+        message: error.value,
+        position: 'bottom'
+      });
+    }
+  };
+  
+  /**
+   * 获取AI总结内容（页面特定场景使用）
+   */
+  const getSummaryContent = () => {
+    console.log('getSummaryContent被调用', {
+      hasTranslationText: !!translationText,
+      hasTargetLanguage: !!targetLanguage,
+      isLoading: loading.value
+    });
     
-    for (let i = 0; i < text.length; i += chunkSize) {
-      const chunk = text.slice(i, i + chunkSize);
-      
-      // 等待随机延迟
-      const delay = Math.floor(Math.random() * (maxDelay - minDelay)) + minDelay;
-      await new Promise(resolve => setTimeout(resolve, delay));
-      
-      // 更新完整内容（同时会触发打字机效果）
-      summaryContent.value += chunk;
-      
-      // 更新进度
-      progressPercentage.value = Math.round((i / text.length) * 100);
+    if (!translationText || !targetLanguage) {
+      console.error('缺少翻译文本或目标语言');
+      error.value = '缺少翻译文本或目标语言';
+      showToast({
+        message: '无法生成总结：缺少必要参数',
+        position: 'bottom'
+      });
+      return;
     }
     
-    // 标记完成
-    loading.value = false;
-    isStreamComplete.value = true;
-    progressPercentage.value = 100;
+    if (loading.value) {
+      console.log('已经在生成中，忽略请求');
+      return;
+    }
+    
+    // 检查翻译文本是否为空
+    if (!translationText.value || translationText.value.trim() === '') {
+      console.error('翻译文本为空');
+      error.value = '翻译文本为空';
+      showToast({
+        message: '没有可用的翻译内容',
+        position: 'bottom'
+      });
+      return;
+    }
+    
+    console.log('准备生成总结', {
+      textLength: translationText.value.length,
+      language: targetLanguage.value
+    });
+    
+    const params: AiSummaryParams = {
+      text: translationText.value,
+      language: targetLanguage.value
+    };
+    
+    fetchSummary(params, true);
   };
   
   /**
@@ -156,6 +233,8 @@ export function useAiSummary(options: UseAiSummaryOptions = {}) {
    * @param useStream 是否使用流式输出 
    */
   const fetchSummary = async (params: AiSummaryParams, useStream = true) => {
+    console.log('fetchSummary被调用', { params, useStream });
+    
     // 重置状态
     loading.value = true;
     error.value = '';
@@ -166,6 +245,7 @@ export function useAiSummary(options: UseAiSummaryOptions = {}) {
     try {
       // 如果使用模拟数据
       if (useMockData) {
+        console.log('使用模拟数据模式');
         const language = params.language.toLowerCase();
         const availableLangs = Object.keys(mockSummaries);
         const closestLang = availableLangs.includes(language) ? language : 'en';
@@ -175,11 +255,13 @@ export function useAiSummary(options: UseAiSummaryOptions = {}) {
         const randomIndex = Math.floor(Math.random() * mockData.length);
         const mockText = mockData[randomIndex];
         
+        console.log('开始模拟流式响应');
         // 模拟流式响应
         await simulateStreamResponse(mockText);
         return;
       }
       
+      console.log('调用API获取流式总结');
       // 使用getStreamSummary方法获取流式输出
       cancelRequest = getStreamSummary(
         params,
@@ -191,12 +273,14 @@ export function useAiSummary(options: UseAiSummaryOptions = {}) {
         },
         () => {
           // 完成回调
+          console.log('流式总结完成');
           loading.value = false;
           isStreamComplete.value = true;
           progressPercentage.value = 100;
         },
         (err) => {
           // 错误回调
+          console.error('流式总结出错', err);
           loading.value = false;
           error.value = err.message || '总结生成失败';
           
@@ -207,6 +291,7 @@ export function useAiSummary(options: UseAiSummaryOptions = {}) {
           
           // 如果出错且启用了模拟数据备用选项，使用模拟数据
           if (useMockData) {
+            console.log('出错后使用备用模拟数据');
             const fallbackLang = typeof params.language === 'string' && 
               params.language.toLowerCase().startsWith('zh') ? 'cn' : 'en';
             simulateStreamResponse(mockSummaries[fallbackLang][0]);
@@ -215,9 +300,9 @@ export function useAiSummary(options: UseAiSummaryOptions = {}) {
         }
       );
     } catch (err: any) {
+      console.error('fetchSummary执行出错', err);
       loading.value = false;
       error.value = err.message || '总结生成失败';
-      console.error('获取AI总结出错:', err);
       
       showFailToast({
         message: error.value,
@@ -310,22 +395,6 @@ export function useAiSummary(options: UseAiSummaryOptions = {}) {
         fetchSummary(params, true);
       }
     }
-  };
-  
-  /**
-   * 获取AI总结内容（页面特定场景使用）
-   */
-  const getSummaryContent = () => {
-    if (!translationText || !targetLanguage || loading.value) {
-      return;
-    }
-    
-    const params: AiSummaryParams = {
-      text: translationText.value,
-      language: targetLanguage.value
-    };
-    
-    fetchSummary(params, true);
   };
   
   /**
