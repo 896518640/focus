@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, computed, onUnmounted } from 'vue';
+import TextToSpeech from '@/components/common/TextToSpeech.vue';
 
 const props = defineProps({
   isRecording: {
@@ -111,6 +112,39 @@ onUnmounted(() => {
         <div ref="translatedTextRef" class="translated-text">
           <span>{{ translatedText }}</span>
           <span v-if="isRecording && translatedText && showCursor" class="cursor">|</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="translation-section">
+      <div class="section-header">
+        <div class="header-title">{{ targetLanguageLabel }}</div>
+        <div class="tts-container">
+          <TextToSpeech 
+            :text="translatedText" 
+            :lang="targetLanguageCode"
+            v-slot="{ speak, pause, resume, stop, isSpeaking, isPaused, isAvailable }"
+          >
+            <button 
+              v-if="isAvailable && translatedText" 
+              class="tts-button"
+              :class="{ 
+                'speaking': isSpeaking && !isPaused,
+                'paused': isPaused
+              }"
+              @click="isSpeaking ? (isPaused ? resume() : pause()) : speak()"
+              :title="isSpeaking ? (isPaused ? '继续朗读' : '暂停朗读') : '朗读翻译'"
+            >
+              <i 
+                class="fas" 
+                :class="{
+                  'fa-volume-up': !isSpeaking,
+                  'fa-pause': isSpeaking && !isPaused,
+                  'fa-play': isPaused
+                }"
+              ></i>
+            </button>
+          </TextToSpeech>
         </div>
       </div>
     </div>
@@ -278,5 +312,51 @@ onUnmounted(() => {
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
+}
+
+/* 为文本朗读按钮添加样式 */
+.tts-container {
+  margin-left: auto;
+}
+
+.tts-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.05);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #666;
+  font-size: 14px;
+}
+
+.tts-button:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.tts-button.speaking {
+  background-color: #007AFF;
+  color: white;
+}
+
+.tts-button.paused {
+  background-color: #FF9500;
+  color: white;
+}
+
+/* 深色模式适配 */
+@media (prefers-color-scheme: dark) {
+  .tts-button {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #CCC;
+  }
+  
+  .tts-button:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
 }
 </style> 

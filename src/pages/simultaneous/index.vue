@@ -7,7 +7,7 @@ import TranslationCard from './components/TranslationCard.vue';
 import RecordingWaveform from './components/RecordingWaveform.vue';
 import UsageTips from './components/UsageTips.vue';
 import BottomNavigation from './components/BottomNavigation.vue';
-import TranslationSettings from './components/TranslationSettings.vue';
+import TranslationSettings from '@/components/common/TranslationSettings.vue';
 import AiSummaryPopup from './components/AiSummaryPopup.vue';
 import { useSimultaneousTranslation, useAiSummary } from './composables';
 

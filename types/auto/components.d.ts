@@ -31,6 +31,7 @@ declare module 'vue' {
     ServiceSelector: typeof import('./../../src/components/voice/ServiceSelector.vue')['default']
     SimultaneousSettings: typeof import('./../../src/components/SimultaneousSettings.vue')['default']
     TabBar: typeof import('./../../src/components/TabBar.vue')['default']
+    TextToSpeech: typeof import('./../../src/components/common/TextToSpeech.vue')['default']
     TingwuUpload: typeof import('./../../src/components/voice/TingwuUpload.vue')['default']
     TranscriptionCard: typeof import('./../../src/components/upload/TranscriptionCard.vue')['default']
     TranscriptionResult: typeof import('./../../src/components/upload/TranscriptionResult.vue')['default']

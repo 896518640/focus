@@ -6,6 +6,7 @@ import { useWaveform } from './useWaveform';
 import { useRecordingControl } from './useRecordingControl';
 import { useSaveTranslation } from './useSaveTranslation';
 import { useTextEffect } from './useTextEffect';
+import { showToast } from 'vant';
 
 interface UseSimultaneousTranslationOptions {
   sourceLanguage?: string;
@@ -15,6 +16,7 @@ interface UseSimultaneousTranslationOptions {
   minTypingSpeed?: number; // 最小打字速度
   maxTypingSpeed?: number; // 最大打字速度
   characterVariation?: boolean; // 是否启用字符变化的随机速度
+  offlineMode?: boolean; // 是否启用离线模式
 }
 
 export function useSimultaneousTranslation(options?: UseSimultaneousTranslationOptions) {
@@ -27,6 +29,97 @@ export function useSimultaneousTranslation(options?: UseSimultaneousTranslationO
   const isLoading = ref(false);
   const showSettings = ref(false);
   const showTips = ref(false);
+  
+  // 网络状态
+  const isOnline = ref(navigator.onLine);
+  const isOfflineMode = ref(options?.offlineMode || false);
+  const isNetworkError = ref(false);
+  const lastNetworkStatus = ref(navigator.onLine);
+  
+  // 离线缓存
+  const offlineCache = ref<{
+    text: string;
+    translation: string;
+    timestamp: number;
+  }[]>([]);
+  
+  // 监听网络状态变化
+  const setupNetworkListeners = () => {
+    const handleOnline = () => {
+      isOnline.value = true;
+      lastNetworkStatus.value = true;
+      
+      if (isNetworkError.value) {
+        showToast({
+          message: '网络已恢复，可以继续翻译',
+          type: 'success',
+          position: 'top'
+        });
+        isNetworkError.value = false;
+      }
+    };
+    
+    const handleOffline = () => {
+      isOnline.value = false;
+      lastNetworkStatus.value = false;
+      
+      // 如果正在翻译且不是离线模式，显示网络错误
+      if (isTranslating.value && !isOfflineMode.value) {
+        isNetworkError.value = true;
+        showToast({
+          message: '网络连接已断开，将尝试保存当前翻译',
+          type: 'warning',
+          position: 'top'
+        });
+      }
+    };
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  };
+  
+  // 设置网络监听器
+  const cleanupNetworkListeners = setupNetworkListeners();
+  
+  // 离线缓存相关函数
+  const saveToOfflineCache = (text: string, translation: string) => {
+    offlineCache.value.push({
+      text,
+      translation,
+      timestamp: Date.now()
+    });
+    
+    // 只保留最近的50条记录
+    if (offlineCache.value.length > 50) {
+      offlineCache.value = offlineCache.value.slice(-50);
+    }
+    
+    // 保存到localStorage
+    try {
+      localStorage.setItem('offlineTranslationCache', JSON.stringify(offlineCache.value));
+    } catch (error) {
+      console.error('保存离线缓存失败:', error);
+    }
+  };
+  
+  const loadOfflineCache = () => {
+    try {
+      const cached = localStorage.getItem('offlineTranslationCache');
+      if (cached) {
+        offlineCache.value = JSON.parse(cached);
+      }
+    } catch (error) {
+      console.error('加载离线缓存失败:', error);
+    }
+  };
+  
+  // 初始化加载离线缓存
+  loadOfflineCache();
   
   // 初始化实时翻译Hook
   const {
@@ -55,11 +148,60 @@ export function useSimultaneousTranslation(options?: UseSimultaneousTranslationO
     autoStart: options?.autoStart || false,
     onTranscriptionResult: (text: string) => {
       liveText.value = text;
+      
+      // 离线模式下或网络异常时使用本地模拟翻译
+      if (!isOnline.value || isOfflineMode.value) {
+        // 简单的模拟翻译功能（实际场景可能需要更复杂的离线翻译逻辑或预先下载的翻译模型）
+        const mockTranslation = simulateOfflineTranslation(text, sourceLanguage.value, targetLanguages.value[0]);
+        liveTranslation.value = mockTranslation;
+        
+        // 保存到离线缓存
+        saveToOfflineCache(text, mockTranslation);
+      }
     },
     onTranslationResult: (text: string) => {
       liveTranslation.value = text;
+      
+      // 在线模式下，也保存到离线缓存以便稍后访问
+      if (isOnline.value && !isOfflineMode.value && liveText.value) {
+        saveToOfflineCache(liveText.value, text);
+      }
     }
   } as RealtimeTranslationOptions);
+  
+  // 简易的离线模拟翻译函数（仅作示例，实际项目中应使用更复杂的逻辑）
+  const simulateOfflineTranslation = (text: string, from: string, to: string): string => {
+    if (!text) return '';
+    
+    // 非常简单的模拟，仅作示例
+    // 实际项目中可以考虑:
+    // 1. 使用预先下载的小型翻译模型
+    // 2. 使用已缓存的翻译对来匹配相似文本
+    // 3. 对常用词组预先翻译并存储
+    
+    const commonPhrases: Record<string, Record<string, string>> = {
+      'cn': {
+        '你好': { 'en': 'Hello', 'ja': 'こんにちは', 'ko': '안녕하세요' },
+        '谢谢': { 'en': 'Thank you', 'ja': 'ありがとう', 'ko': '감사합니다' },
+        '再见': { 'en': 'Goodbye', 'ja': 'さようなら', 'ko': '안녕히 가세요' }
+      },
+      'en': {
+        'Hello': { 'cn': '你好', 'ja': 'こんにちは', 'ko': '안녕하세요' },
+        'Thank you': { 'cn': '谢谢', 'ja': 'ありがとう', 'ko': '감사합니다' },
+        'Goodbye': { 'cn': '再见', 'ja': 'さようなら', 'ko': '안녕히 가세요' }
+      }
+    };
+    
+    // 检查是否有匹配的常用短语
+    for (const phrase in commonPhrases[from]) {
+      if (text.includes(phrase) && commonPhrases[from][phrase][to]) {
+        return text.replace(phrase, commonPhrases[from][phrase][to]);
+      }
+    }
+    
+    // 没有匹配的短语时，添加离线模式提示
+    return `[离线模式] ${text}`;
+  };
   
   // 初始化文本特效
   const {
@@ -94,6 +236,18 @@ export function useSimultaneousTranslation(options?: UseSimultaneousTranslationO
     cleanupWaveform
   } = useWaveform();
   
+  // 重写startTranslation以支持离线模式
+  const startTranslation = () => {
+    if (isOfflineMode.value || !isOnline.value) {
+      // 离线模式下直接开始录音但不连接API
+      console.log('以离线模式开始翻译');
+      return true;
+    } else {
+      // 在线模式下使用原始函数
+      return startTranslationOriginal();
+    }
+  };
+  
   // 初始化录音控制
   const {
     isButtonPressing,
@@ -107,7 +261,7 @@ export function useSimultaneousTranslation(options?: UseSimultaneousTranslationO
     isTranslating,
     isInitialized,
     isConnected,
-    startTranslation: startTranslationOriginal,
+    startTranslation,
     pauseTranslation,
     resumeTranslation,
     startTimer,
@@ -130,7 +284,7 @@ export function useSimultaneousTranslation(options?: UseSimultaneousTranslationO
     isTranslating,
     stopTranslation,
     initializeTask,
-    startTranslation: startTranslationOriginal,
+    startTranslation,
     resetTimer
   });
   
@@ -171,6 +325,31 @@ export function useSimultaneousTranslation(options?: UseSimultaneousTranslationO
     setTargetLanguages([newLang]);
   };
   
+  // 设置多目标语言
+  const handleMultiTargetLanguagesChange = (languages: string[]) => {
+    if (languages && languages.length > 0) {
+      setTargetLanguages(languages);
+    }
+  };
+  
+  // 切换离线模式
+  const toggleOfflineMode = (value?: boolean) => {
+    isOfflineMode.value = value !== undefined ? value : !isOfflineMode.value;
+    
+    showToast({
+      message: isOfflineMode.value ? '已启用离线模式' : '已切换为在线模式',
+      position: 'bottom'
+    });
+    
+    // 如果正在翻译，需要重新启动
+    if (isTranslating.value) {
+      stopTranslation();
+      setTimeout(() => {
+        startTranslation();
+      }, 500);
+    }
+  };
+  
   // 切换提示显示
   const toggleTips = () => {
     showTips.value = !showTips.value;
@@ -190,6 +369,7 @@ export function useSimultaneousTranslation(options?: UseSimultaneousTranslationO
     cleanupTimer();
     cleanupWaveform();
     cleanupTextEffect();
+    cleanupNetworkListeners();
   };
   
   return {
@@ -209,6 +389,14 @@ export function useSimultaneousTranslation(options?: UseSimultaneousTranslationO
     isPaused,
     isSaving,
     isButtonPressing,
+    
+    // 网络状态
+    isOnline,
+    isOfflineMode,
+    isNetworkError,
+    
+    // 离线缓存
+    offlineCache,
     
     // 数据
     waveformHeights,
@@ -235,6 +423,10 @@ export function useSimultaneousTranslation(options?: UseSimultaneousTranslationO
     saveTranslation,
     cleanup,
     handleSourceLanguageChange,
-    handleTargetLanguageChange
+    handleTargetLanguageChange,
+    handleMultiTargetLanguagesChange,
+    toggleOfflineMode,
+    saveToOfflineCache,
+    loadOfflineCache
   };
 } 
