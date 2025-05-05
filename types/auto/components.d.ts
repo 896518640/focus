@@ -19,6 +19,7 @@ declare module 'vue' {
     FilterBar: typeof import('./../../src/components/history/FilterBar.vue')['default']
     HistoryCard: typeof import('./../../src/components/history/HistoryCard.vue')['default']
     HistoryList: typeof import('./../../src/components/history/HistoryList.vue')['default']
+    PlanCard: typeof import('./../../src/components/membership/PlanCard.vue')['default']
     RealtimeTranslator: typeof import('./../../src/components/RealtimeTranslator.vue')['default']
     RecentUploads: typeof import('./../../src/components/upload/RecentUploads.vue')['default']
     RecordingControl: typeof import('./../../src/components/voice/RecordingControl.vue')['default']

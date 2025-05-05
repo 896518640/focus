@@ -136,6 +136,14 @@ const generateMockSummary = () => {
   console.log('开始模拟流式响应');
   simulateStreamResponse(mockText);
 };
+
+// 在script setup部分添加handleSkipAnimation方法
+const handleSkipAnimation = () => {
+  // 对于跳过动画功能，我们需要确保summaryContent立即显示
+  if (typeof displayedContent === 'object' && displayedContent.value) {
+    displayedContent.value = summaryContent.value;
+  }
+};
 </script>
 
 <template>
@@ -198,7 +206,7 @@ const generateMockSummary = () => {
       @copy-summary="copySummary"
       @stop-stream="stopGeneratingSummary"
       @get-mock="generateMockSummary"
-      @skip-animation="showFullText"
+      @skip-animation="handleSkipAnimation"
     />
     
     <!-- 波形可视化区域，固定在底部导航上方 -->

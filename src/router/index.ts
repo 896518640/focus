@@ -131,6 +131,15 @@ export const routes: RouteRecordRaw[] = [
           title: "AI总结",
           showNav: false
         }
+      },
+      {
+        path: "/membership",
+        name: "Membership",
+        component: () => import("@/pages/membership/index.vue"),
+        meta: {
+          title: "会员",
+          showNav: false
+        }
       }
     ]
   },
