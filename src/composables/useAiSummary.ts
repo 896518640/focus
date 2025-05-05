@@ -266,6 +266,7 @@ export function useAiSummary(options: UseAiSummaryOptions = {}) {
       cancelRequest = getStreamSummary(
         params,
         (message) => {
+          console.log('流式总结消息', message);
           if (message.content) {
             // 累加到完整内容（会自动触发打字机效果）
             summaryContent.value += message.content;

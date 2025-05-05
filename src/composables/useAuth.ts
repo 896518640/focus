@@ -32,7 +32,7 @@ export function useAuth() {
     try {
       loading.value = true;
       const res = await login(username, password) as ApiResponse<LoginResponseData>;
-      
+      console.log('res', res);
       if (res.code === 0) {
         // 登录成功
         showSuccessMessage('登录成功');
@@ -41,11 +41,13 @@ export function useAuth() {
         router.push(redirectPath);
         return true;
       } else {
+        console.log('res', res);
         // 登录失败
         showErrorMessage(res.message || '登录失败');
         return false;
       }
     } catch (error: any) {
+      console.log('error', error);
       showErrorMessage(error.message || '登录请求失败');
       return false;
     } finally {

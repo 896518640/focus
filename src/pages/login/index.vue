@@ -4,7 +4,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { showToast } from 'vant';
 import { setToken } from '@/utils/cache/cookies';
 import { useUserStore } from '@/pinia/stores/user';
-import { login } from '@/services/authService';
+import { login } from '@/api/auth';
 import { showSuccessMessage, showErrorMessage } from '@/http/axios';
 
 // 导入封装的组件
@@ -57,7 +57,7 @@ onMounted(() => {
     { key: 'socialLogin', delay: 900 },
     { key: 'signupLink', delay: 1000 }
   ];
-  
+
   animationSequence.forEach(({ key, delay }) => {
     setTimeout(() => { animations[key as keyof typeof animations] = true }, delay);
   });
@@ -91,36 +91,29 @@ const handleLogin = async (formData: LoginFormData) => {
     showToast('请输入邮箱和密码');
     return;
   }
-  
+
   loading.value = true;
   animateLogin.value = true;
   vibrate([15, 30, 15]);
-  
+
   try {
     // 调用登录接口
     const res = await login(formData.email, formData.password) as {
-      code: number;
-      data: { token: string };
-      message?: string;
+      token: string;
     };
-    
-    if (res.code === 0) {
-      // 登录成功
-      showSuccessMessage('登录成功');
-      
-      // 保存token
-      setToken(res.data.token);
-      
-      // 更新用户信息
-      await userStore.getInfo();
-      
-      // 处理重定向
-      const redirect = route.query?.redirect as string || '/';
-      handleRedirect(redirect);
-    } else {
-      // 登录失败
-      showErrorMessage(res.message || '登录失败');
-    }
+
+    // 登录成功
+    showSuccessMessage('登录成功');
+
+    // 保存token
+    setToken(res.token);
+
+    // 更新用户信息
+    await userStore.getInfo();
+
+    // 处理重定向
+    const redirect = route.query?.redirect as string || '/';
+    handleRedirect(redirect);
   } catch (error: any) {
     showErrorMessage(error.message || '登录失败，请稍后再试');
   } finally {
@@ -132,19 +125,19 @@ const handleLogin = async (formData: LoginFormData) => {
 // 社交登录
 const handleSocialLogin = (type: string) => {
   vibrate(10);
-  
+
   if (type === 'register') {
     router.push('/register');
     return;
   }
-  
+
   showToast(`${type}登录功能开发中...`);
 };
 
 // 游客模式登录
 const handleGuestLogin = () => {
   vibrate([10, 20, 10]);
-  
+
   userStore.setGuestMode(true);
   showSuccessMessage('已进入游客模式');
   router.push('/');
@@ -155,30 +148,20 @@ const handleGuestLogin = () => {
   <div class="login-container">
     <!-- 背景组件 -->
     <LoginBackground />
-    
+
     <div class="login-content">
       <!-- Logo区域 -->
       <LogoSection :animate="animations.logo" />
-      
+
       <!-- 标题 -->
       <h1 class="login-title" :class="{ 'animate-in': animations.title }">欢迎回来</h1>
-      
+
       <!-- 登录表单 -->
-      <LoginForm 
-        ref="loginFormRef"
-        :animations="animations"
-        :loading="loading"
-        :animateLogin="animateLogin"
-        @login="handleLogin"
-        @togglePassword="togglePasswordVisibility"
-      />
-      
+      <LoginForm ref="loginFormRef" :animations="animations" :loading="loading" :animateLogin="animateLogin"
+        @login="handleLogin" @togglePassword="togglePasswordVisibility" />
+
       <!-- 社交登录 -->
-      <SocialLogin 
-        :animate="animations.socialLogin"
-        @socialLogin="handleSocialLogin"
-        @guestLogin="handleGuestLogin"
-      />
+      <SocialLogin :animate="animations.socialLogin" @socialLogin="handleSocialLogin" @guestLogin="handleGuestLogin" />
     </div>
   </div>
 </template>
@@ -233,7 +216,7 @@ const handleGuestLogin = () => {
     --primary-dark: #0071e3;
     --disabled-color: #3a3a3c;
   }
-  
+
   .login-content {
     background-color: rgba(30, 30, 30, 0.8);
   }

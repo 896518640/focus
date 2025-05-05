@@ -1,71 +1,38 @@
 // request.ts
-// 请求工具函数
+// 请求工具函数 - 兼容层，转发请求到统一的axios实例
 
-import axios from 'axios';
-import { getToken } from '@/utils/cache/cookies';
+import type { AxiosRequestConfig } from 'axios';
+import defaultInstance from '@/http/axios';
+
 /**
- * 获取API基础URL
- * @returns API基础URL
+ * 这是一个兼容层，用于确保使用 @/utils/request 的代码可以继续工作
+ * 所有请求会被转发到统一的axios实例
  */
-export function getBaseUrl(): string {
-  // 根据环境变量获取基础URL
-  const env = import.meta.env.MODE;
-
-  if (env === 'development') {
-    // 开发环境使用代理配置，返回空字符串
-    return '';
-  } else if (env === 'production') {
-    return window.location.origin;
-  } else {
-    return '';
+const request = {
+  get: <T>(url: string, config?: AxiosRequestConfig) => {
+    return defaultInstance.get<T>(url, config);
+  },
+  post: <T>(url: string, data?: any, config?: AxiosRequestConfig) => {
+    return defaultInstance.post<T>(url, data, config);
+  },
+  put: <T>(url: string, data?: any, config?: AxiosRequestConfig) => {
+    return defaultInstance.put<T>(url, data, config);
+  },
+  delete: <T>(url: string, config?: AxiosRequestConfig) => {
+    return defaultInstance.delete<T>(url, config);
+  },
+  patch: <T>(url: string, data?: any, config?: AxiosRequestConfig) => {
+    return defaultInstance.patch<T>(url, data, config);
+  },
+  request: <T>(config: AxiosRequestConfig) => {
+    return defaultInstance.request<T>(config);
   }
+};
+
+// 通用请求函数，支持泛型
+export default function<T>(config: AxiosRequestConfig) {
+  return defaultInstance<T>(config);
 }
 
-/**
- * 创建axios实例
- */
-const request = axios.create({
-  baseURL: getBaseUrl(),
-  timeout: 30000,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-});
-
-// 请求拦截器
-request.interceptors.request.use(
-  config => {
-    // 从localStorage获取token
-    const token = getToken();
-    if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
-    }
-    return config;
-  },
-  error => {
-    console.error('请求错误:', error);
-    return Promise.reject(error);
-  }
-);
-
-// 响应拦截器
-request.interceptors.response.use(
-  response => {
-    return response;
-  },
-  error => {
-    console.error('响应错误:', error);
-
-    // 处理401错误（未授权）
-    if (error.response && error.response.status === 401) {
-      // 清除token
-      localStorage.removeItem('token');
-      // 跳转到登录页
-      window.location.href = '/login';
-    }
-
-    return Promise.reject(error);
-  }
-);
-
-export default request;
+// 导出请求方法
+export { request };

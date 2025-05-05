@@ -44,27 +44,25 @@ export function useApiService(options: RealtimeTranslationOptions = {}) {
       errorMessage.value = ''
       
       // 创建实时任务或使用现有任务
-      let response: any
-      let res: any
+      let response;
       
-      if (useExistingTask && taskId.value) {
-        // 如果指定使用现有任务，并且有taskId，则获取任务信息
-        console.log('使用现有任务ID:', taskId.value)
+      // if (useExistingTask && taskId.value) {
+      //   // 如果指定使用现有任务，并且有taskId，则获取任务信息
+      //   console.log('使用现有任务ID:', taskId.value)
         
-        response = await getTaskInfo(taskId.value)
-        res = response.data
+      //   response = await getTaskInfo(taskId.value)
         
-        if (!res.success || !res.data.meetingJoinUrl) {
-          console.warn('获取现有任务信息失败，将创建新任务')
-          // 如果获取失败，回退到创建新任务
-          useExistingTask = false
-        } else {
-          // 使用现有任务的meetingUrl
-          meetingUrl.value = res.data.meetingJoinUrl
-          isInitialized.value = true
-          console.log('成功获取现有任务信息:', res)
-        }
-      }
+      //   if (!response.meetingJoinUrl) {
+      //     console.warn('获取现有任务信息失败，将创建新任务')
+      //     // 如果获取失败，回退到创建新任务
+      //     useExistingTask = false
+      //   } else {
+      //     // 使用现有任务的meetingUrl
+      //     meetingUrl.value = response.meetingJoinUrl
+      //     isInitialized.value = true
+      //     console.log('成功获取现有任务信息:', response)
+      //   }
+      // }
       
       // 如果不使用现有任务或获取现有任务失败，则创建新任务
       if (!useExistingTask || !isInitialized.value) {
@@ -100,16 +98,9 @@ export function useApiService(options: RealtimeTranslationOptions = {}) {
         }
         
         response = await createTask(params)
-        res = response.data
-
-        console.log('创建实时翻译任务成功', res)
-
-        if (!res.success || !res.data.meetingJoinUrl) {
-          throw new Error(res.message || '创建实时翻译任务失败')
-        }
         
-        taskId.value = res.data.taskId
-        meetingUrl.value = res.data.meetingJoinUrl!
+        taskId.value = response.taskId
+        meetingUrl.value = response.meetingJoinUrl!
         isInitialized.value = true
       }
       
@@ -156,7 +147,7 @@ export function useApiService(options: RealtimeTranslationOptions = {}) {
         }
       }
       
-      const response = await createTask(params)
+      await createTask(params)
       console.log('成功结束实时翻译任务')
       
       // 清除任务相关数据

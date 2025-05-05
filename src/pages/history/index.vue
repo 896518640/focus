@@ -121,20 +121,13 @@ const loadTranslationRecords = async (reset = true) => {
     
     const response = await getTranslationList(currentPage.value, pageSize.value);
     
-    if (response.data.success && response.data.data) {
-      if (reset) {
-        translationItems.value = response.data.data.list;
-      } else {
-        translationItems.value = [...translationItems.value, ...response.data.data.list];
-      }
-      
-      totalItems.value = response.data.data.total || 0;
-      hasMore.value = translationItems.value.length < totalItems.value;
+    if (reset) {
+      translationItems.value = response.list;
     } else {
-      loadError.value = true;
-      errorMessage.value = response.data.message || '获取数据失败，请稍后重试';
-      console.error('获取翻译记录失败:', response);
+      translationItems.value = [...translationItems.value, ...response.list];
     }
+    totalItems.value = response.total || 0;
+    hasMore.value = translationItems.value.length < totalItems.value;
   } catch (error) {
     loadError.value = true;
     errorMessage.value = '网络错误，请检查连接后重试';
@@ -205,19 +198,14 @@ const goToHome = () => {
 const handleDeleteTranslation = async (id: string) => {
   try {
     if (confirm('确定要删除这条翻译记录吗？')) {
-      const response = await deleteTranslation(id);
-      
-      if (response.data.success) {
-        showSuccessToast('删除成功');
-        // 从当前列表中移除该记录
-        translationItems.value = translationItems.value.filter(item => item.id !== id);
-        // 如果列表为空且还有更多数据，重新加载
+      await deleteTranslation(id);
+      showSuccessToast('删除成功');
+      // 从当前列表中移除该记录
+      translationItems.value = translationItems.value.filter(item => item.id !== id);
+      // 如果列表为空且还有更多数据，重新加载
         if (translationItems.value.length === 0 && hasMore.value) {
           await loadTranslationRecords();
         }
-      } else {
-        showToast(response.data.message || '删除失败');
-      }
     }
   } catch (error) {
     console.error('删除翻译记录失败:', error);

@@ -1,4 +1,4 @@
-import request from '@/utils/request';
+import { request } from '@/http/axios';
 
 /**
  * API统一响应接口
@@ -80,8 +80,8 @@ export interface TranslationListResponse {
  * @returns 保存结果
  */
 export function saveTranslation(params: SaveTranslationParams) {
-  return request<ApiResponse<SaveTranslationResponse>>({
-    url: '/api/v1/translation/save',
+  return request<SaveTranslationResponse>({
+    url: '/translation/save',
     method: 'POST',
     data: params
   });
@@ -94,8 +94,8 @@ export function saveTranslation(params: SaveTranslationParams) {
  * @returns 翻译记录列表
  */
 export function getTranslationList(page: number = 1, pageSize: number = 10) {
-  return request<ApiResponse<TranslationListResponse>>({
-    url: '/api/v1/translation/list',
+  return request<TranslationListResponse>({
+    url: '/translation/list',
     method: 'GET',
     params: { page, pageSize }
   });
@@ -107,8 +107,8 @@ export function getTranslationList(page: number = 1, pageSize: number = 10) {
  * @returns 翻译记录详情
  */
 export function getTranslationDetail(id: string) {
-  return request<ApiResponse<SaveTranslationResponse & SaveTranslationParams>>({
-    url: `/api/v1/translation/detail/${id}`,
+  return request<SaveTranslationResponse & SaveTranslationParams>({
+    url: `/translation/detail/${id}`,
     method: 'GET'
   });
 }
@@ -119,8 +119,8 @@ export function getTranslationDetail(id: string) {
  * @returns 操作结果
  */
 export function deleteTranslation(id: string) {
-  return request<ApiResponse<{ success: boolean }>>({
-    url: `/api/v1/translation/delete/${id}`,
+  return request<{ success: boolean }>({
+    url: `/translation/delete/${id}`,
     method: 'DELETE'
   });
 } 

@@ -1,8 +1,5 @@
-import request from '@/utils/request';
-import axios from 'axios';
-import { ApiResponse } from './save';
-import { getToken } from '@/utils/cache/cookies';
-import requestStream, { StreamMessageHandler } from '@/utils/request-stream';
+import { request, StreamMessageHandler, requestStream } from '@/http/axios';
+// import requestStream, { StreamMessageHandler } from '@/utils/request-stream';
 
 /**
  * AI总结请求参数
@@ -60,7 +57,7 @@ export function getStreamSummary(
   // 使用request-stream发起请求
   return requestStream<AiSummaryStreamMessage>(
     {
-      url: 'api/v1/translation/summarize',
+      url: '/api/v1/translation/summarize',
       method: 'POST',
       data: params
     },

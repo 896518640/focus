@@ -40,18 +40,23 @@ export interface CreateTaskParams {
   };
 }
 
-export interface TaskResponse {
-    success: boolean;
-    message?: string;
+export interface TaskInfoResponse {
     taskId: string;
     taskStatus: string;
     requestId: string;
-    meetingJoinUrl?: string;
+    outputMp3Path?: string;
     result?: {
       transcription?: string;
       translation?: string;
       autoChapters?: string;
     };
+}
+
+export interface createTaskResponse {
+  taskId: string;
+  taskStatus: string;
+  requestId: string;
+  meetingJoinUrl?: string;
 }
 
 /**
@@ -60,7 +65,7 @@ export interface TaskResponse {
  * @returns 任务响应
  */
 export const createTask = async (params: CreateTaskParams) => {
-  return request({
+  return request<createTaskResponse>({
     url: "tingwu/tasks",
     method: "post",
     data: params
@@ -73,7 +78,7 @@ export const createTask = async (params: CreateTaskParams) => {
  * @returns 任务响应
  */
 export const getTaskInfo = async (taskId: string) => {
-  return request({
+  return request<TaskInfoResponse>({
     url: `tingwu/tasks/${taskId}`,
     method: "get"
   });

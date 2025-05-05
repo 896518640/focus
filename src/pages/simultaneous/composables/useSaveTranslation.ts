@@ -114,9 +114,9 @@ export function useSaveTranslation(options: UseSaveTranslationOptions) {
           // 轮询函数
           const pollTaskStatus = async (): Promise<any> => {
             try {
-              const response: any = await getTaskInfo(currentTaskId);
-              const data = response.data?.data;
-              console.log(`轮询任务状态 [${attempts+1}/${maxAttempts}]:`, data?.taskStatus);
+              const response = await getTaskInfo(currentTaskId);
+              console.log('轮询任务状态', response)
+              console.log(`轮询任务状态 [${attempts+1}/${maxAttempts}]:`, response.taskStatus);
               
               // 更新加载提示
               showLoadingToast({
@@ -126,14 +126,14 @@ export function useSaveTranslation(options: UseSaveTranslationOptions) {
               });
               
               // 检查是否完成
-              if (data?.taskStatus === 'COMPLETED') {
-                console.log('任务已完成:', data);
-                return data;
+              if (response.taskStatus === 'COMPLETED') {
+                console.log('任务已完成:', response);
+                return response;
               }
               
               // 检查是否失败
-              if (data?.taskStatus === 'FAILED') {
-                console.error('任务失败:', data);
+              if (response.taskStatus === 'FAILED') {
+                console.error('任务失败:', response);
                 throw new Error('任务处理失败');
               }
               
@@ -143,7 +143,7 @@ export function useSaveTranslation(options: UseSaveTranslationOptions) {
               // 检查是否达到最大尝试次数
               if (attempts >= maxAttempts) {
                 console.warn('达到最大尝试次数，停止轮询');
-                return data; // 返回最后一次获取的数据
+                return response; // 返回最后一次获取的数据
               }
               
               // 等待指定时间后再次轮询

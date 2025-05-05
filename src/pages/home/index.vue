@@ -89,10 +89,9 @@ const loadTranslationRecords = async () => {
     errorMessage.value = '';
     
     const response = await getTranslationList(1, 5); // 获取最近5条记录
-    
-    if (response.data.success && response.data.data && response.data.data.list) {
+    if (response.list) {
       // 格式化数据
-      recentItems.value = response.data.data.list.map((item) => {
+      recentItems.value = response.list.map((item) => {
         // 格式化日期
         const date = new Date(item.createdAt);
         const month = date.getMonth() + 1;
@@ -110,10 +109,6 @@ const loadTranslationRecords = async () => {
           recordData: item // 保存原始数据，便于后续操作
         };
       });
-    } else {
-      loadError.value = true;
-      errorMessage.value = response.data.message || '获取数据失败，请稍后重试';
-      console.error('获取翻译记录失败:', response);
     }
   } catch (error) {
     loadError.value = true;
@@ -144,14 +139,7 @@ const handleDeleteRecord = async (id: string, event: Event) => {
   
   try {
     if (confirm('确定要删除这条翻译记录吗？')) {
-      const response = await deleteTranslation(id);
-      
-      if (response.data.success) {
-        // 删除成功后刷新列表
-        await loadTranslationRecords();
-      } else {
-        alert(response.data.message || '删除失败');
-      }
+      await deleteTranslation(id);
     }
   } catch (error) {
     console.error('删除翻译记录失败:', error);

@@ -76,27 +76,27 @@ export const useUserStore = defineStore("user", () => {
   // 获取用户详情
   const getInfo = async () => {
     try {
-      const { data } = await getCurrentUserApi()
-      username.value = data.username
-      userId.value = data.id
-      email.value = data.email
-      role.value = data.role
-      roles.value = data.roles || [data.role]
-      isActive.value = data.isActive
-      console.log('data', data)
+      const res = await getCurrentUserApi()
+      username.value = res.username
+      userId.value = res.id
+      email.value = res.email
+      role.value = res.role
+      roles.value = res.roles || [res.role]
+      // isActive.value = res.isActive
+      console.log('res', res)
 
       // 更新用户个人资料
       profile.value = {
-        id: data.id,
-        username: data.username,
-        email: data.email,
+        id: res.id,
+        username: res.username,
+        email: res.email,
         avatar: '',
-        isPremium: data.role === 'admin' || data.role === 'premium',
+        isPremium: res.role === 'admin' || res.role === 'premium',
         isGuest: false,
         preferences: { ...defaultPreferences },
       }
 
-      return data
+      return res
     } catch (error) {
       resetToken()
       return null

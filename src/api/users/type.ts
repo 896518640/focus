@@ -1,4 +1,4 @@
-export type CurrentUserResponseData = ApiResponseData<{ 
+export type CurrentUserResponseData = { 
   id: string; 
   username: string; 
   displayName: string;
@@ -9,7 +9,7 @@ export type CurrentUserResponseData = ApiResponseData<{
   createdAt: string;
   updatedAt?: string;
   lastLoginAt?: string;
-}>
+}
 
 export type UserProfileResponseData = ApiResponseData<{
   id: string;

@@ -210,8 +210,7 @@ const fetchTranslationDetail = async () => {
     // 调用API获取翻译详情
     const response = await getTranslationDetail(id);
     
-    if (response.data.success) {
-      translationData.value = response.data.data;
+      translationData.value = response;
       console.log('获取到翻译详情:', translationData.value);
       
       // 获取总结
@@ -222,12 +221,6 @@ const fetchTranslationDetail = async () => {
       setTimeout(() => {
         getSummary();
       }, 100);
-      
-    } else {
-      showToast(response.data.message || '获取翻译详情失败');
-      console.error('获取翻译详情API返回错误:', response.data);
-      setTimeout(goBack, 1500);
-    }
   } catch (error) {
     console.error('获取翻译详情失败:', error);
     showToast('网络错误，请稍后重试');
