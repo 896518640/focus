@@ -154,7 +154,7 @@ const goToLogin = () => {
             class="input-field" 
             placeholder=" "
           />
-          <label for="username" class="input-label">用户名</label>
+          <label for="username" class="input-label">登陆账号</label>
           <div class="input-icon">
             <i class="fas fa-user"></i>
           </div>
