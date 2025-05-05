@@ -5,7 +5,7 @@ import { showToast } from 'vant';
 import { setToken } from '@/utils/cache/cookies';
 import { useUserStore } from '@/pinia/stores/user';
 import { login } from '@/api/auth';
-import { showSuccessMessage, showErrorMessage } from '@/http/axios';
+import { showSuccessMessage, showErrorMessage } from '@/utils/toast';
 
 // 导入封装的组件
 import LoginBackground from './components/LoginBackground.vue';

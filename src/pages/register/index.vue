@@ -5,7 +5,7 @@ import { showToast } from 'vant';
 import { setToken } from '@/utils/cache/cookies';
 import { useUserStore } from '@/pinia/stores/user';
 import { register } from '@/services/authService';
-import { showSuccessMessage, showErrorMessage } from '@/http/axios';
+import { showSuccessMessage, showErrorMessage } from '@/utils/toast';
 
 const router = useRouter();
 const userStore = useUserStore();

@@ -8,7 +8,7 @@ import { useRouter } from 'vue-router';
 import { useUserStore } from '@/pinia/stores/user';
 import { showToast } from 'vant';
 import { login } from '@/services/authService';
-import { showSuccessMessage, showErrorMessage } from '@/http/axios';
+import { showSuccessMessage, showErrorMessage } from '@/utils/toast';
 
 // API 响应类型定义
 interface ApiResponse<T = any> {
