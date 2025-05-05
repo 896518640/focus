@@ -60,11 +60,7 @@ const fetchUserProfile = async () => {
   });
   
   try {
-    const res = await getUserProfileApi();
-    
-    if (res.data) {
-      const data = res.data;
-      
+    const data = await getUserProfileApi();
       // 更新表单数据
       userForm.id = data.id;
       userForm.displayName = data.displayName;
@@ -85,12 +81,6 @@ const fetchUserProfile = async () => {
       } else {
         avatarLoaded.value = true;
       }
-    } else {
-      showToast({
-        message: '获取用户资料失败',
-        position: 'bottom',
-      });
-    }
   } catch (error: any) {
     console.error('获取用户资料出错:', error);
     showToast({
@@ -170,38 +160,32 @@ const saveProfile = async () => {
     
     const res = await updateUserProfileApi(updateData);
     
-    if (res.data) {
-      // 显示成功动画
-      showSuccessAnimation.value = true;
+    // 显示成功动画
+    showSuccessAnimation.value = true;
+    
+    setTimeout(() => {
+      showSuccessAnimation.value = false;
       
-      setTimeout(() => {
-        showSuccessAnimation.value = false;
-        
-        showToast({
-          message: '保存成功',
-          position: 'bottom',
-          type: 'success'
-        });
-        
-        // 更新原始数据
-        originalForm.value = {
-          displayName: userForm.displayName,
-          avatar: userForm.avatar
-        };
-        
-        hasChanged.value = false;
-        
-        // 返回个人中心页面
-        setTimeout(() => {
-          router.push('/profile');
-        }, 1000);
-      }, 1500);
-    } else {
       showToast({
-        message: '保存失败',
+        message: '保存成功',
         position: 'bottom',
+        type: 'success'
       });
-    }
+      
+      // 更新原始数据
+      originalForm.value = {
+        displayName: userForm.displayName,
+        avatar: userForm.avatar
+      };
+      
+      hasChanged.value = false;
+      
+      // 返回个人中心页面
+      setTimeout(() => {
+        router.push('/profile');
+      }, 1000);
+    }, 1500);
+
   } catch (error: any) {
     console.error('保存资料出错:', error);
     showToast({

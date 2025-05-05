@@ -1,71 +1,17 @@
 import { request } from "@/http/axios"
-
-
-// API接口
-export interface CreateTaskParams {
-  type: 'offline' | 'realtime';
-  operation?: 'start' | 'stop';
-  input: {
-    sourceLanguage: string;
-    format?: string;
-    sampleRate?: number;
-    fileUrl?: string;
-    taskId?: string;
-  };
-  parameters: {
-    translationEnabled: boolean;
-    translation?: {
-      targetLanguages: string[];
-      outputLevel: number;
-    };
-    transcription: {
-      audioEventDetectionEnabled: boolean;
-      diarization?: {
-        speakerCount: number;
-      };
-      outputLevel: number;
-    };
-    transcoding?: {
-      targetAudioFormat: string;
-    };
-    autoChaptersEnabled: boolean;
-    meetingAssistanceEnabled: boolean;
-    meetingAssistance?: {
-      types: string[];
-    };
-    summarizationEnabled: boolean;
-    summarization?: {
-      types: string[];
-    };
-  };
-}
-
-export interface TaskInfoResponse {
-    taskId: string;
-    taskStatus: string;
-    requestId: string;
-    outputMp3Path?: string;
-    result?: {
-      transcription?: string;
-      translation?: string;
-      autoChapters?: string;
-    };
-}
-
-export interface createTaskResponse {
-  taskId: string;
-  taskStatus: string;
-  requestId: string;
-  meetingJoinUrl?: string;
-}
+import { 
+  TingwuCreateTaskParams,
+  TingwuTaskInfoResponse,
+  TingwuCreateTaskResponse 
+} from '@/types/api/tingwu';
 
 /**
  * 创建任务
  * @param params 任务参数
  * @returns 任务响应
  */
-export const createTask = async (params: CreateTaskParams) => {
-  return request<createTaskResponse>({
+export const createTask = async (params: TingwuCreateTaskParams) => {
+  return request<TingwuCreateTaskResponse>({
     url: "tingwu/tasks",
     method: "post",
     data: params
@@ -78,8 +24,16 @@ export const createTask = async (params: CreateTaskParams) => {
  * @returns 任务响应
  */
 export const getTaskInfo = async (taskId: string) => {
-  return request<TaskInfoResponse>({
+  return request<TingwuTaskInfoResponse>({
     url: `tingwu/tasks/${taskId}`,
     method: "get"
   });
 };
+
+
+// 重新导出类型，以保持兼容性
+export type {
+  TingwuCreateTaskParams as CreateTaskParams,
+  TingwuTaskInfoResponse as TaskInfoResponse,
+  TingwuCreateTaskResponse as createTaskResponse
+}; 

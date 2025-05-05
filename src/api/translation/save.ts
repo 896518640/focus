@@ -1,86 +1,17 @@
 import { request } from '@/http/axios';
-
-/**
- * API统一响应接口
- */
-export interface ApiResponse<T> {
-  /** 是否成功 */
-  success: boolean;
-  /** 消息 */
-  message: string;
-  /** 响应数据 */
-  data: T;
-  /** 时间戳 */
-  timestamp: string;
-}
-
-/**
- * 保存翻译记录接口参数
- */
-export interface SaveTranslationParams {
-  /** 任务ID（可选） */
-  taskId?: string | null;
-  /** 标题 */
-  title: string;
-  /** 源语言 */
-  sourceLanguage: string;
-  /** 目标语言 */
-  targetLanguage: string;
-  /** 原文内容 */
-  originalText: string;
-  /** 翻译内容 */
-  translatedText: string;
-  /** 录音时长（秒） */
-  duration: number;
-  /** 时间戳 */
-  timestamp: number;
-  /** 任务状态 */
-  taskStatus?: string;
-  /** 输出MP3文件路径 */
-  outputMp3Path?: string;
-  /** 错误信息 */
-  errorMessage?: string;
-  /** 标签（可选） */
-  tags?: string[];
-}
-
-/**
- * 保存翻译记录响应
- */
-export interface SaveTranslationResponse {
-  /** 记录ID */
-  id: string;
-  /** 创建时间 */
-  createdAt: string;
-  /** 更新时间 */
-  updatedAt: string;
-  /** 记录状态 */
-  status: string;
-}
-
-/**
- * 翻译记录列表响应
- */
-export interface TranslationListResponse {
-  /** 总记录数 */
-  total: number;
-  /** 当前页码 */
-  page?: number;
-  /** 每页记录数 */
-  pageSize?: number;
-  /** 总页数 */
-  totalPages?: number;
-  /** 记录列表 */
-  list: Array<SaveTranslationResponse & SaveTranslationParams>;
-}
+import type { 
+  SaveTranslationParams as TSaveTranslationParams,
+  SaveTranslationResponse as TSaveTranslationResponse,
+  TranslationListResponse as TTranslationListResponse
+} from '@/types/api/translation';
 
 /**
  * 保存翻译记录
  * @param params 保存参数
  * @returns 保存结果
  */
-export function saveTranslation(params: SaveTranslationParams) {
-  return request<SaveTranslationResponse>({
+export function saveTranslation(params: TSaveTranslationParams) {
+  return request<TSaveTranslationResponse>({
     url: '/translation/save',
     method: 'POST',
     data: params
@@ -94,7 +25,7 @@ export function saveTranslation(params: SaveTranslationParams) {
  * @returns 翻译记录列表
  */
 export function getTranslationList(page: number = 1, pageSize: number = 10) {
-  return request<TranslationListResponse>({
+  return request<TTranslationListResponse>({
     url: '/translation/list',
     method: 'GET',
     params: { page, pageSize }
@@ -107,7 +38,7 @@ export function getTranslationList(page: number = 1, pageSize: number = 10) {
  * @returns 翻译记录详情
  */
 export function getTranslationDetail(id: string) {
-  return request<SaveTranslationResponse & SaveTranslationParams>({
+  return request<TSaveTranslationResponse & TSaveTranslationParams>({
     url: `/translation/detail/${id}`,
     method: 'GET'
   });
@@ -123,4 +54,11 @@ export function deleteTranslation(id: string) {
     url: `/translation/delete/${id}`,
     method: 'DELETE'
   });
-} 
+}
+
+// 重新导出类型，以保持兼容性
+export type {
+  TSaveTranslationParams as SaveTranslationParams,
+  TSaveTranslationResponse as SaveTranslationResponse,
+  TTranslationListResponse as TranslationListResponse
+}; 

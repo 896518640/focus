@@ -53,7 +53,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { showToast, showSuccessToast } from 'vant';
-import { getTranslationList, deleteTranslation, SaveTranslationParams, SaveTranslationResponse, TranslationListResponse, ApiResponse } from '@/api/translation/save';
+import { getTranslationList, deleteTranslation, SaveTranslationParams, SaveTranslationResponse } from '@/api/translation/save';
 import SearchBar from '@/components/history/SearchBar.vue';
 import FilterBar from '@/components/history/FilterBar.vue';
 import HistoryList from '@/components/history/HistoryList.vue';

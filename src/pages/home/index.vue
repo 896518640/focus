@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { getTranslationList, deleteTranslation, SaveTranslationParams, SaveTranslationResponse, TranslationListResponse, ApiResponse } from '@/api/translation/save';
+import { getTranslationList, deleteTranslation, SaveTranslationParams, SaveTranslationResponse } from '@/api/translation/save';
 
 const router = useRouter();
 

@@ -1,30 +1,14 @@
 import { request } from "@/http/axios";
-import { ApiResponse } from "./save";
+import { ApiResponse } from '@/types/api';
+import { 
+  TranslateParams, 
+  TranslateResult, 
+  LanguageInfo 
+} from '@/types/api/translation';
 
 /**
  * 翻译相关API接口
  */
-
-export interface TranslateParams {
-  text: string;
-  sourceLang: string;
-  targetLang: string;
-}
-
-export interface TranslateResult {
-  originalText: string;
-  translatedText: string;
-  sourceLang: string;
-  targetLang: string;
-  detectedLang?: string;
-}
-
-export interface LanguageInfo {
-  code: string;
-  name: string;
-  nativeName: string;
-  rtl: boolean;
-}
 
 /**
  * 文本翻译

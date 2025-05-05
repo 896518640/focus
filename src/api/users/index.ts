@@ -1,9 +1,14 @@
-import type * as Users from "./type"
 import { request } from "@/http/axios"
+import { 
+  CurrentUserResponseData,
+  UserProfileResponseData,
+  UpdateProfileParams,
+  UpdateProfileResponseData
+} from '@/types/api/users';
 
 /** 获取当前登录用户基本信息 */
 export function getCurrentUserApi() {
-  return request<Users.CurrentUserResponseData>({
+  return request<CurrentUserResponseData>({
     url: "user/me",
     method: "get"
   })
@@ -11,15 +16,15 @@ export function getCurrentUserApi() {
 
 /** 获取用户详细资料 */
 export function getUserProfileApi() {
-  return request<Users.UserProfileResponseData>({
+  return request<UserProfileResponseData>({
     url: "user/profile",
     method: "get"
   })
 }
 
 /** 更新用户资料 */
-export function updateUserProfileApi(data: Users.UpdateProfileParams) {
-  return request<Users.UpdateProfileResponseData>({
+export function updateUserProfileApi(data: UpdateProfileParams) {
+  return request<UpdateProfileResponseData>({
     url: "user/profile",
     method: "put",
     data

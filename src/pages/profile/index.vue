@@ -109,34 +109,21 @@ const fetchUserProfile = async () => {
   try {
     const res = await getUserProfileApi();
     console.log('用户资料API响应:', res);
-    
-    if (res.data) {
-      const data = res.data;
-      userInfo.value = {
-        id: data.id,
-        displayName: data.displayName,
-        email: data.email,
-        avatar: data.avatar || '',
-        role: data.role,
-        createdAt: data.createdAt,
-        lastLoginAt: data.lastLoginAt || '',
-        usageStats: {
-          studyHours: data.usageStats?.studyHours || 0,
-          recognitionCount: data.usageStats?.recognitionCount || 0,
-          fileCount: data.usageStats?.fileCount || 0,
-          translationCount: data.usageStats?.translationCount || 0
-        }
-      };
-    } else {
-      console.warn('API返回数据为空，使用模拟数据');
-      // 使用模拟数据
-      useMockData();
-      
-      showToast({
-        message: '获取用户资料失败，使用模拟数据',
-        position: 'bottom',
-      });
-    }
+    userInfo.value = {
+      id: res.id,
+      displayName: res.displayName,
+      email: res.email,
+      avatar: res.avatar || '',
+      role: res.role,
+      createdAt: res.createdAt,
+      lastLoginAt: res.lastLoginAt || '',
+      usageStats: {
+        studyHours: res.usageStats?.studyHours || 0,
+        recognitionCount: res.usageStats?.recognitionCount || 0,
+        fileCount: res.usageStats?.fileCount || 0,
+        translationCount: res.usageStats?.translationCount || 0
+      }
+    };
   } catch (error: any) {
     console.error('获取用户资料出错:', error);
     // 使用模拟数据
@@ -193,19 +180,12 @@ const editAvatar = async () => {
       avatar: newAvatar
     });
     
-    if (res.data) {
-      userInfo.value.avatar = newAvatar;
-      showToast({
-        message: '头像更新成功',
-        position: 'bottom',
-        type: 'success'
-      });
-    } else {
-      showToast({
-        message: '更新失败',
-        position: 'bottom',
-      });
-    }
+    userInfo.value.avatar = newAvatar;
+    showToast({
+      message: '头像更新成功',
+      position: 'bottom',
+      type: 'success'
+    });
   } catch (error: any) {
     console.error('更新头像出错:', error);
     showToast({

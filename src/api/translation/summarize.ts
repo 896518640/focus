@@ -1,37 +1,10 @@
-import { request, StreamMessageHandler, requestStream } from '@/http/axios';
-// import requestStream, { StreamMessageHandler } from '@/utils/request-stream';
-
-/**
- * AI总结请求参数
- */
-export interface AiSummaryParams {
-  /** 待总结的文本 */
-  text: string;
-  /** 语言 */
-  language: string;
-}
-
-/**
- * AI总结流式响应消息
- */
-export interface AiSummaryStreamMessage {
-  /** 文本片段 */
-  content: string;
-}
-
-/**
- * AI总结响应
- */
-export interface AiSummaryResponse {
-  /** 是否成功 */
-  success: boolean;
-  /** 消息 */
-  message: string;
-  /** 响应数据 */
-  data: string;
-  /** 时间戳 */
-  timestamp: string;
-}
+import { request } from '@/http/axios';
+import requestStream, { StreamMessageHandler } from '@/utils/request-stream';
+import { 
+  AiSummaryParams,
+  AiSummaryStreamMessage, 
+  AiSummaryResponse
+} from '@/types/api/translation';
 
 /**
  * 获取AI总结（流式输出）
