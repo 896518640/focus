@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { useUserStore } from '@/pinia/stores/user';
 import { showToast, showLoadingToast, closeToast } from 'vant';
 import { getUserProfileApi, updateUserProfileApi } from '@/api/users';
+import SimultaneousSettings from '@/components/SimultaneousSettings.vue';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -29,6 +30,20 @@ const userInfo = ref({
 const isLoading = ref(false);
 const pageLoaded = ref(false);
 const avatarHovered = ref(false);
+
+// 同传设置弹窗
+const showSimultaneousSettings = ref(false);
+const sourceLanguage = ref('cn');
+const targetLanguage = ref('en');
+
+// 处理语言变更
+const handleSourceLanguageChange = (lang: string) => {
+  sourceLanguage.value = lang;
+};
+
+const handleTargetLanguageChange = (lang: string) => {
+  targetLanguage.value = lang;
+};
 
 // 计算属性：格式化创建时间
 const formattedCreatedAt = computed(() => {
@@ -223,6 +238,11 @@ const logout = () => {
   router.push('/login');
 };
 
+// 打开同传设置
+const openSimultaneousSettings = () => {
+  showSimultaneousSettings.value = true;
+};
+
 // 页面加载时获取用户资料
 onMounted(async () => {
   try {
@@ -307,6 +327,30 @@ onMounted(async () => {
         </div>
       </div>
       
+      <!-- 新增功能入口区域 -->
+      <div class="quick-actions">
+        <div class="action-item" @click="openSimultaneousSettings">
+          <div class="action-icon">
+            <i class="fas fa-headset"></i>
+          </div>
+          <div class="action-name">同传设置</div>
+        </div>
+        
+        <div class="action-item" @click="router.push('/membership')">
+          <div class="action-icon premium-icon">
+            <i class="fas fa-crown"></i>
+          </div>
+          <div class="action-name">升级套餐</div>
+        </div>
+        
+        <div class="action-item" @click="router.push('/settings')">
+          <div class="action-icon">
+            <i class="fas fa-cog"></i>
+          </div>
+          <div class="action-name">更多设置</div>
+        </div>
+      </div>
+      
       <!-- 用户信息摘要 -->
       <div class="membership-card card-shadow">
         <div class="membership-info">
@@ -366,6 +410,46 @@ onMounted(async () => {
       </div>
     </div>
     
+    <!-- 功能入口区域 -->
+    <div class="features-section card-shadow">
+      <div class="section-header">
+        <div class="section-title">
+          <i class="fas fa-th-large"></i>
+          <span>功能与设置</span>
+        </div>
+      </div>
+      
+      <div class="features-grid">
+        <div class="feature-item" @click="router.push('/settings')">
+          <div class="feature-icon">
+            <i class="fas fa-cog"></i>
+          </div>
+          <div class="feature-name">设置</div>
+        </div>
+        
+        <div class="feature-item" @click="router.push('/settings/account')">
+          <div class="feature-icon">
+            <i class="fas fa-user-cog"></i>
+          </div>
+          <div class="feature-name">账号</div>
+        </div>
+        
+        <div class="feature-item" @click="router.push('/notifications')">
+          <div class="feature-icon">
+            <i class="fas fa-bell"></i>
+          </div>
+          <div class="feature-name">通知</div>
+        </div>
+        
+        <div class="feature-item" @click="router.push('/privacy')">
+          <div class="feature-icon">
+            <i class="fas fa-shield-alt"></i>
+          </div>
+          <div class="feature-name">隐私</div>
+        </div>
+      </div>
+    </div>
+    
     <!-- 底部选项 -->
     <div class="bottom-options card-shadow">
       <div class="option-item" @click="router.push('/help')">
@@ -395,6 +479,15 @@ onMounted(async () => {
         <span>退出登录</span>
       </button>
     </div>
+    
+    <!-- 同传设置弹窗 -->
+    <SimultaneousSettings
+      v-model:show="showSimultaneousSettings"
+      :source-language="sourceLanguage"
+      :target-language="targetLanguage"
+      @source-language-change="handleSourceLanguageChange"
+      @target-language-change="handleTargetLanguageChange"
+    />
   </div>
 </template>
 
@@ -721,6 +814,71 @@ onMounted(async () => {
   color: #8E8E93;
 }
 
+/* 快速功能入口 */
+.quick-actions {
+  display: flex;
+  justify-content: space-between;
+  background: linear-gradient(45deg, #F9F9FC, #F4F4F8);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 20px;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+  animation: slideInUp 0.6s ease;
+  animation-delay: 0.1s;
+  opacity: 0;
+  animation-fill-mode: forwards;
+}
+
+.action-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 12px;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  width: 30%;
+}
+
+.action-item:active {
+  background-color: rgba(0, 0, 0, 0.02);
+  transform: translateY(3px);
+}
+
+.action-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(45deg, rgba(0, 122, 255, 0.1), rgba(88, 86, 214, 0.1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: #007AFF;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 10px rgba(0, 122, 255, 0.1);
+}
+
+.premium-icon {
+  background: linear-gradient(45deg, rgba(255, 184, 0, 0.15), rgba(255, 204, 0, 0.15));
+  color: #FF9500;
+  box-shadow: 0 4px 10px rgba(255, 149, 0, 0.1);
+}
+
+.action-item:active .action-icon {
+  transform: scale(0.9);
+}
+
+.action-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1C1C1E;
+  text-align: center;
+}
+
 /* 会员信息卡片 */
 .membership-card {
   background: linear-gradient(45deg, #F8F9FA, #E7F0FF);
@@ -1002,6 +1160,110 @@ onMounted(async () => {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* 设置按钮 */
+.settings-button {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #007AFF;
+  font-size: 20px;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  z-index: 2;
+  transition: all 0.3s ease;
+}
+
+.settings-button:active {
+  transform: scale(0.9) rotate(45deg);
+  background-color: rgba(0, 122, 255, 0.1);
+}
+
+/* 功能入口区域 */
+.features-section {
+  background-color: #FFFFFF;
+  border-radius: 16px;
+  margin: 16px;
+  padding: 20px;
+  animation: slideInUp 0.5s ease;
+  animation-delay: 0.15s;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.feature-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  cursor: pointer;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.feature-item:active {
+  background-color: rgba(0, 0, 0, 0.02);
+  transform: scale(0.95);
+}
+
+.feature-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(45deg, rgba(0, 122, 255, 0.1), rgba(88, 86, 214, 0.1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #007AFF;
+  font-size: 18px;
+  transition: all 0.3s ease;
+}
+
+.feature-item:active .feature-icon {
+  transform: scale(0.9);
+  background: linear-gradient(45deg, rgba(0, 122, 255, 0.2), rgba(88, 86, 214, 0.2));
+}
+
+.feature-name {
+  font-size: 12px;
+  color: #000000;
+  font-weight: 500;
+}
+
+/* 确保在小屏幕上正确显示 */
+@media (max-width: 360px) {
+  .features-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .quick-actions {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .action-item {
+    width: 100%;
+    flex-direction: row;
+    justify-content: flex-start;
+  }
+  
+  .action-name {
+    text-align: left;
   }
 }
 </style>

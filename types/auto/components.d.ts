@@ -27,6 +27,7 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     SearchBar: typeof import('./../../src/components/history/SearchBar.vue')['default']
     ServiceSelector: typeof import('./../../src/components/voice/ServiceSelector.vue')['default']
+    SimultaneousSettings: typeof import('./../../src/components/SimultaneousSettings.vue')['default']
     TabBar: typeof import('./../../src/components/TabBar.vue')['default']
     TingwuUpload: typeof import('./../../src/components/voice/TingwuUpload.vue')['default']
     TranscriptionCard: typeof import('./../../src/components/upload/TranscriptionCard.vue')['default']
