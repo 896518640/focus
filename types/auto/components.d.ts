@@ -8,6 +8,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AiSummaryPopup: typeof import('./../../src/components/AiSummaryPopup.vue')['default']
     AudioTranscription: typeof import('./../../src/components/voice/AudioTranscription.vue')['default']
     AudioWave: typeof import('./../../src/components/AudioWave.vue')['default']
     BaseCard: typeof import('./../../src/components/BaseCard.vue')['default']

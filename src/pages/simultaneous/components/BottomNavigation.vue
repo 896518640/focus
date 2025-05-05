@@ -18,7 +18,7 @@ defineProps({
   }
 });
 
-defineEmits(['toggleRecording', 'toggleSettings', 'saveTranslation']);
+defineEmits(['toggleRecording', 'toggleSettings', 'saveTranslation', 'toggleAiSummary']);
 </script>
 
 <template>
@@ -51,7 +51,7 @@ defineEmits(['toggleRecording', 'toggleSettings', 'saveTranslation']);
       <span>同传设置</span>
     </button>
     
-    <button class="bottom-button ripple-effect">
+    <button class="bottom-button ripple-effect" @click="$emit('toggleAiSummary')" :class="{ 'disabled': !isRecording && !isPaused }">
       <i class="fas fa-magic"></i>
       <span>AI总结</span>
     </button>

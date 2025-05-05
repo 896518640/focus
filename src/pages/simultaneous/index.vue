@@ -8,7 +8,8 @@ import RecordingWaveform from './components/RecordingWaveform.vue';
 import UsageTips from './components/UsageTips.vue';
 import BottomNavigation from './components/BottomNavigation.vue';
 import TranslationSettings from './components/TranslationSettings.vue';
-import { useSimultaneousTranslation } from './composables';
+import AiSummaryPopup from './components/AiSummaryPopup.vue';
+import { useSimultaneousTranslation, useAiSummary } from './composables';
 
 const router = useRouter();
 
@@ -47,6 +48,26 @@ const {
   sourceLanguage: 'cn',
   targetLanguages: ['en'],
   autoStart: false
+});
+
+// 使用AI总结
+const {
+  showSummary,
+  loading: isSummarizing,
+  summaryContent,
+  error: summaryError,
+  displayedContent,
+  toggleSummary,
+  getSummaryContent,
+  copySummary,
+  isStreamComplete,
+  progressPercentage,
+  stopGeneratingSummary,
+  simulateStreamResponse
+} = useAiSummary({
+  translationText: liveTranslation,
+  targetLanguage: localTargetLanguage,
+  // useMockData: import.meta.env.DEV // 开发环境下启用模拟数据备用
 });
 
 // 返回首页
@@ -91,6 +112,27 @@ onUnmounted(() => {
   
   document.body.classList.remove('iOS-style');
 });
+
+// 生成模拟摘要
+const generateMockSummary = () => {
+  if (!liveTranslation.value) {
+    showToast('没有可用的翻译内容');
+    return;
+  }
+  
+  const mockText = 
+    `这是一段模拟的AI总结内容，用于在开发环境中测试流式输出和打字机效果。
+    
+该翻译内容主要包含以下几个关键点：
+1. 技术实现的可行性分析和挑战
+2. 用户场景与需求分析
+3. 市场竞争情况概述
+4. 潜在投资回报评估
+
+总体来说，该内容提出了一个有价值的解决方案框架，值得进一步深入研究和开发。`;
+
+  simulateStreamResponse(mockText);
+};
 </script>
 
 <template>
@@ -140,6 +182,22 @@ onUnmounted(() => {
       @target-language-change="handleTargetLanguageChange"
     />
     
+    <!-- AI总结弹窗 -->
+    <AiSummaryPopup
+      v-model:show="showSummary"
+      :loading="isSummarizing"
+      :content="summaryContent"
+      :displayed-content="displayedContent"
+      :error="summaryError"
+      :is-stream-complete="isStreamComplete"
+      :progress-percentage="progressPercentage"
+      @get-summary="getSummaryContent"
+      @copy-summary="copySummary"
+      @stop-stream="stopGeneratingSummary"
+      @get-mock="generateMockSummary"
+      @skip-animation="showFullText"
+    />
+    
     <!-- 波形可视化区域，固定在底部导航上方 -->
     <div class="waveform-container-wrapper" v-if="isTranslating || isPaused">
       <RecordingWaveform 
@@ -157,6 +215,7 @@ onUnmounted(() => {
       @toggle-recording="toggleRecording"
       @toggle-settings="toggleSettings"
       @save-translation="saveTranslation"
+      @toggle-ai-summary="toggleSummary"
       class="animate__animated animate__fadeIn page-element" 
       style="animation-delay: 0.5s;"
     />
