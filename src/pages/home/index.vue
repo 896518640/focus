@@ -228,7 +228,7 @@ onMounted(() => {
             <button class="action-refresh" @click="handleRefresh" :disabled="isLoading">
               <i class="fas fa-sync-alt" :class="{ 'fa-spin': isLoading }"></i>
             </button>
-            <div class="section-more" @click="router.push('/history')">查看全部</div>
+          <div class="section-more" @click="router.push('/history')">查看全部</div>
           </div>
         </div>
         <div class="recent-list">

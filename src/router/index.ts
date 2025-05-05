@@ -66,7 +66,7 @@ export const routes: RouteRecordRaw[] = [
         component: () => import("@/pages/history/index.vue"),
         meta: {
           title: "历史",
-          showNav: true
+          showNav: false
         }
       },
       {
@@ -93,6 +93,15 @@ export const routes: RouteRecordRaw[] = [
         component: () => import("@/pages/demo/translate-demo.vue"),
         meta: {
           title: "实时翻译演示",
+          showNav: false
+        }
+      },
+      {
+        path: "/translation-detail",
+        name: "translationDetail",
+        component: () => import("@/pages/translation-detail/index.vue"),
+        meta: {
+          title: "翻译详情",
           showNav: false
         }
       }
