@@ -1,53 +1,171 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '@/pinia/stores/user';
+import { showToast, showLoadingToast, closeToast } from 'vant';
+import { getUserProfileApi, updateUserProfileApi } from '@/api/users';
 
 const router = useRouter();
 const userStore = useUserStore();
 
 // 用户信息
 const userInfo = ref({
-  name: '张明',
-  email: 'zhangming@example.com',
-  avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-  membership: 'Focus会员',
-  membershipDays: 25,
+  id: '',
+  displayName: '',
+  email: '',
+  avatar: '',
+  role: '',
+  createdAt: '',
+  lastLoginAt: '',
   usageStats: {
-    studyHours: 24,
-    recognitionCount: 128,
-    fileCount: 36
-  },
-  recentActivities: [
-    {
-      id: 1,
-      title: '完成了30分钟的语音识别',
-      time: '今天 14:30',
-      icon: 'fa-microphone',
-      iconBg: '#E5F1FF'
-    },
-    {
-      id: 2,
-      title: '上传了一个音频文件',
-      time: '昨天 16:45',
-      icon: 'fa-file-audio',
-      iconBg: '#E5F1FF'
-    },
-    {
-      id: 3,
-      title: '获得了一篇课程摘要',
-      time: '3月21日 10:15',
-      icon: 'fa-file-alt',
-      iconBg: '#E5F1FF'
-    }
-  ]
+    studyHours: 0,
+    recognitionCount: 0,
+    fileCount: 0,
+    translationCount: 0
+  }
 });
-// const userInfo = ref(userStore.getUserInfo());
 
+// 计算属性：格式化创建时间
+const formattedCreatedAt = computed(() => {
+  if (!userInfo.value.createdAt) return '';
+  
+  const date = new Date(userInfo.value.createdAt);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
+});
+
+// 计算属性：加入天数
+const joinDays = computed(() => {
+  if (!userInfo.value.createdAt) return 0;
+  
+  const createdDate = new Date(userInfo.value.createdAt);
+  const today = new Date();
+  const diffTime = Math.abs(today.getTime() - createdDate.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  return diffDays;
+});
+
+// 最近活动数据
+const recentActivities = ref([
+  {
+    id: 1,
+    title: '完成了语音识别',
+    time: '今天',
+    icon: 'fa-microphone',
+    iconBg: '#E5F1FF'
+  },
+  {
+    id: 2,
+    title: '翻译了一段文本',
+    time: '昨天',
+    icon: 'fa-language',
+    iconBg: '#E5F1FF'
+  },
+  {
+    id: 3,
+    title: '获取了AI总结',
+    time: '前天',
+    icon: 'fa-robot',
+    iconBg: '#E5F1FF'
+  }
+]);
 
 // 动画状态
 const statsLoaded = ref(false);
 const activityLoaded = ref(false);
+const isLoading = ref(false);
+
+// 获取用户详细资料
+const fetchUserProfile = async () => {
+  isLoading.value = true;
+  showLoadingToast({
+    message: '加载中...',
+    forbidClick: true,
+  });
+  
+  try {
+    const res = await getUserProfileApi();
+    console.log('用户资料API响应:', res);
+    
+    if (res.data) {
+      const data = res.data;
+      userInfo.value = {
+        id: data.id,
+        displayName: data.displayName,
+        email: data.email,
+        avatar: data.avatar || '',
+        role: data.role,
+        createdAt: data.createdAt,
+        lastLoginAt: data.lastLoginAt || '',
+        usageStats: {
+          studyHours: data.usageStats?.studyHours || 0,
+          recognitionCount: data.usageStats?.recognitionCount || 0,
+          fileCount: data.usageStats?.fileCount || 0,
+          translationCount: data.usageStats?.translationCount || 0
+        }
+      };
+    } else {
+      showToast({
+        message: '获取用户资料失败',
+        position: 'bottom',
+      });
+    }
+  } catch (error: any) {
+    console.error('获取用户资料出错:', error);
+    showToast({
+      message: error.message || '网络错误',
+      position: 'bottom',
+    });
+  } finally {
+    isLoading.value = false;
+    closeToast();
+  }
+};
+
+// 编辑用户头像
+const editAvatar = async () => {
+  // 实际应用中可以实现图片上传逻辑
+  // 这里简化处理，使用一个随机头像
+  const randomId = Math.floor(Math.random() * 100);
+  const newAvatar = `https://randomuser.me/api/portraits/${Math.random() > 0.5 ? 'men' : 'women'}/${randomId}.jpg`;
+  
+  try {
+    showLoadingToast({
+      message: '更新中...',
+      forbidClick: true,
+    });
+    
+    const res = await updateUserProfileApi({
+      avatar: newAvatar
+    });
+    
+    if (res.data) {
+      userInfo.value.avatar = newAvatar;
+      showToast({
+        message: '头像更新成功',
+        position: 'bottom',
+        type: 'success'
+      });
+    } else {
+      showToast({
+        message: '更新失败',
+        position: 'bottom',
+      });
+    }
+  } catch (error: any) {
+    console.error('更新头像出错:', error);
+    showToast({
+      message: error.message || '网络错误',
+      position: 'bottom',
+    });
+  } finally {
+    closeToast();
+  }
+};
 
 // 跳转到设置页面
 const navigateToSetting = (path: string) => {
@@ -66,14 +184,14 @@ const viewAllActivities = () => {
 
 // 退出登录
 const logout = () => {
-  // 实际应用中应该调用登出API
   userStore.logout();
   router.push('/login');
-  
 };
 
-// 页面加载动画
-onMounted(() => {
+// 页面加载时获取用户资料
+onMounted(async () => {
+  await fetchUserProfile();
+  
   setTimeout(() => {
     statsLoaded.value = true;
   }, 300);
@@ -100,13 +218,16 @@ onMounted(() => {
     <!-- 用户信息卡片 -->
     <div class="user-card">
       <div class="user-info">
-        <div class="user-avatar">
+        <div class="user-avatar" @click="editAvatar">
           <i v-if="!userInfo.avatar" class="fas fa-user-circle"></i>
           <img v-else :src="userInfo.avatar" alt="用户头像">
+          <div class="avatar-edit-badge">
+            <i class="fas fa-camera"></i>
+          </div>
         </div>
         <div class="user-details">
-          <div class="user-name">{{ userInfo.name }}</div>
-          <div class="user-role">Focus会员</div>
+          <div class="user-name">{{ userInfo.displayName }}</div>
+          <div class="user-email">{{ userInfo.email }}</div>
         </div>
         <div class="edit-profile" @click="navigateToSetting('/settings/account')">
           <span>编辑</span>
@@ -124,19 +245,20 @@ onMounted(() => {
           <div class="stats-label">识别次数</div>
         </div>
         <div class="stats-item" :class="{ 'stats-loaded': statsLoaded }" style="transition-delay: 0.2s">
-          <div class="stats-value">{{ userInfo.usageStats.fileCount }}</div>
-          <div class="stats-label">文件数量</div>
+          <div class="stats-value">{{ userInfo.usageStats.translationCount }}</div>
+          <div class="stats-label">翻译次数</div>
         </div>
       </div>
       
-      <!-- 会员信息 -->
+      <!-- 用户信息摘要 -->
       <div class="membership-card">
         <div class="membership-info">
-          <div class="membership-title">Focus高级会员</div>
-          <div class="membership-desc">剩余{{ userInfo.membershipDays }}天 | 已解锁全部特权</div>
+          <div class="membership-title">账号信息</div>
+          <div class="membership-desc">加入时间: {{ formattedCreatedAt }}</div>
+          <div class="membership-desc">已加入 {{ joinDays }} 天</div>
         </div>
         <div class="membership-action">
-          <button class="renew-btn" @click="renewMembership">续费会员</button>
+          <button class="renew-btn" @click="navigateToSetting('/settings/account')">账号设置</button>
         </div>
       </div>
     </div>
@@ -149,7 +271,7 @@ onMounted(() => {
       </div>
       <div class="activities-list">
         <div 
-          v-for="(activity, index) in userInfo.recentActivities" 
+          v-for="(activity, index) in recentActivities" 
           :key="activity.id"
           class="activity-item"
           :class="{ 'activity-loaded': activityLoaded }"
@@ -254,135 +376,158 @@ onMounted(() => {
 }
 
 .user-avatar {
-  width: 70px;
-  height: 70px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
-  background-color: #E5F1FF;
+  overflow: hidden;
+  position: relative;
+  background-color: #F2F2F7;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 30px;
-  color: #007AFF;
-  margin-right: 16px;
-  overflow: hidden;
-  border: 1px solid rgba(0, 122, 255, 0.2);
+  cursor: pointer;
+  transition: transform 0.2s ease;
 }
 
-.user-avatar img {
+.user-avatar:active {
+  transform: scale(0.95);
+}
+
+.user-avatar > i {
+  font-size: 64px;
+  color: #C7C7CC;
+}
+
+.user-avatar > img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
+.avatar-edit-badge {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background-color: #007AFF;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
 .user-details {
+  margin-left: 16px;
   flex: 1;
 }
 
 .user-name {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   color: #000000;
   margin-bottom: 4px;
 }
 
-.user-role {
+.user-email {
   font-size: 14px;
   color: #8E8E93;
 }
 
 .edit-profile {
-  padding: 8px 16px;
-  background-color: #FFFFFF;
-  border: 1px solid #007AFF;
-  border-radius: 20px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  background-color: rgba(0, 122, 255, 0.1);
   color: #007AFF;
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .edit-profile:active {
-  background-color: rgba(0, 122, 255, 0.1);
+  background-color: rgba(0, 122, 255, 0.2);
   transform: scale(0.95);
 }
 
 /* 使用统计 */
 .stats-grid {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 20px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
+  margin-bottom: 20px;
 }
 
 .stats-item {
-  flex: 1;
-  text-align: center;
-  padding: 15px 10px;
-  background-color: #FFFFFF;
+  background-color: #F2F2F7;
   border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  padding: 15px 10px;
+  text-align: center;
   opacity: 0;
   transform: translateY(10px);
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: opacity 0.5s ease, transform 0.5s ease;
 }
 
-.stats-loaded {
+.stats-item.stats-loaded {
   opacity: 1;
   transform: translateY(0);
 }
 
 .stats-value {
-  font-size: 22px;
-  font-weight: 600;
-  color: #000000;
-  margin-bottom: 5px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #007AFF;
+  margin-bottom: 6px;
 }
 
 .stats-label {
-  font-size: 13px;
+  font-size: 12px;
   color: #8E8E93;
 }
 
-/* 会员卡片 */
+/* 会员信息卡片 */
 .membership-card {
-  background: linear-gradient(135deg, #007AFF, #5AC8FA);
+  background: linear-gradient(135deg, #F8F9FA 0%, #E7F0FF 100%);
   border-radius: 12px;
-  padding: 20px;
+  padding: 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: #FFFFFF;
-  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+  margin-top: 20px;
 }
 
 .membership-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
-  margin-bottom: 5px;
+  color: #000000;
+  margin-bottom: 6px;
 }
 
 .membership-desc {
   font-size: 13px;
-  opacity: 0.9;
+  color: #636366;
+  margin-bottom: 3px;
 }
 
 .renew-btn {
-  background-color: #FFFFFF;
-  color: #007AFF;
-  border: none;
-  border-radius: 20px;
   padding: 8px 16px;
+  border-radius: 20px;
+  background-color: #007AFF;
+  color: white;
   font-size: 14px;
   font-weight: 500;
+  border: none;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .renew-btn:active {
-  opacity: 0.8;
+  background-color: #0062CC;
   transform: scale(0.95);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 /* 最近活动 */
@@ -392,7 +537,8 @@ onMounted(() => {
   margin: 16px;
   padding: 20px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
-  animation: cardFadeIn 0.5s ease 0.2s both;
+  animation: cardFadeIn 0.5s ease;
+  animation-delay: 0.2s;
 }
 
 .section-header {
@@ -403,7 +549,7 @@ onMounted(() => {
 }
 
 .section-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: #000000;
 }
@@ -412,37 +558,25 @@ onMounted(() => {
   font-size: 14px;
   color: #007AFF;
   cursor: pointer;
-  transition: opacity 0.2s ease;
-}
-
-.section-action:active {
-  opacity: 0.7;
 }
 
 .activities-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .activity-item {
   display: flex;
   align-items: center;
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgba(209, 209, 214, 0.5);
   opacity: 0;
-  transform: translateX(10px);
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transform: translateY(10px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
 }
 
-.activity-loaded {
+.activity-item.activity-loaded {
   opacity: 1;
-  transform: translateX(0);
-}
-
-.activity-item:last-child {
-  padding-bottom: 0;
-  border-bottom: none;
+  transform: translateY(0);
 }
 
 .activity-icon {
@@ -452,14 +586,9 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 16px;
+  margin-right: 12px;
   color: #007AFF;
   font-size: 16px;
-  transition: transform 0.2s ease;
-}
-
-.activity-item:active .activity-icon {
-  transform: scale(0.9);
 }
 
 .activity-content {
@@ -467,9 +596,9 @@ onMounted(() => {
 }
 
 .activity-title {
-  font-size: 16px;
+  font-size: 15px;
   color: #000000;
-  margin-bottom: 5px;
+  margin-bottom: 4px;
 }
 
 .activity-time {
@@ -481,63 +610,59 @@ onMounted(() => {
 .bottom-options {
   display: flex;
   justify-content: space-around;
-  background-color: #FFFFFF;
   padding: 16px;
   margin: 16px;
+  background-color: #FFFFFF;
   border-radius: 12px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
-  animation: cardFadeIn 0.5s ease 0.4s both;
+  animation: cardFadeIn 0.5s ease;
+  animation-delay: 0.3s;
 }
 
 .option-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  color: #8E8E93;
-  font-size: 14px;
+  gap: 8px;
   cursor: pointer;
-  transition: color 0.2s ease, transform 0.2s ease;
-  padding: 10px;
-}
-
-.option-item:active {
-  color: #007AFF;
-  transform: scale(0.95);
 }
 
 .option-item i {
-  font-size: 22px;
-  margin-bottom: 8px;
+  font-size: 24px;
+  color: #007AFF;
 }
 
-/* 退出登录按钮 */
+.option-item span {
+  font-size: 13px;
+  color: #8E8E93;
+}
+
+/* 退出登录 */
 .logout-container {
   padding: 0 16px;
   margin-top: 16px;
-  animation: cardFadeIn 0.5s ease 0.5s both;
+  animation: cardFadeIn 0.5s ease;
+  animation-delay: 0.4s;
 }
 
 .logout-btn {
   width: 100%;
-  background-color: #FF3B30;
-  color: #FFFFFF;
-  border: none;
+  padding: 12px;
   border-radius: 12px;
-  padding: 15px;
+  background-color: #FF3B30;
+  color: white;
   font-size: 16px;
   font-weight: 500;
+  border: none;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(255, 59, 48, 0.2);
 }
 
 .logout-btn:active {
-  opacity: 0.8;
+  background-color: #D83028;
   transform: scale(0.98);
-  box-shadow: 0 1px 2px rgba(255, 59, 48, 0.2);
 }
 
-/* 动画 */
 @keyframes cardFadeIn {
   from {
     opacity: 0;
@@ -547,24 +672,5 @@ onMounted(() => {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-/* 页面过渡动画 */
-.page-enter-active,
-.page-leave-active {
-  transition: opacity 0.3s, transform 0.3s;
-}
-
-.page-enter-from,
-.page-leave-to {
-  opacity: 0;
-  transform: translateY(10px);
-}
-
-/* iOS风格的点击态 */
-.ios-tap-highlight {
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
-  touch-action: manipulation;
 }
 </style>

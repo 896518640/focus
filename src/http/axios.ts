@@ -215,15 +215,15 @@ export const request = function <T>(config: AxiosRequestConfig): Promise<T> {
 export const authAPI = {
   // 用户登录
   login: (data: { email: string; password: string }) => {
-    return service.post('/auth/login', data);
+    return service.post('/user/auth/login', data);
   },
   // 用户注册
   register: (data: { username: string; email: string; password: string }) => {
-    return service.post('/auth/register', data);
+    return service.post('/user/auth/register', data);
   },
   // 获取当前用户信息
   getCurrentUser: () => {
-    return service.get('/auth/me');
+    return service.get('/user/auth/me');
   },
 };
 

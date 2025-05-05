@@ -79,6 +79,24 @@ export const routes: RouteRecordRaw[] = [
         }
       },
       {
+        path: "/settings",
+        name: "Settings",
+        component: () => import("@/pages/settings/index.vue"),
+        meta: {
+          title: "设置",
+          showNav: false
+        }
+      },
+      {
+        path: "/settings/account",
+        name: "AccountSettings",
+        component: () => import("@/pages/settings/account/index.vue"),
+        meta: {
+          title: "账号设置",
+          showNav: false
+        }
+      },
+      {
         path: "/simultaneous",
         name: "Simultaneous",
         component: () => import("@/pages/simultaneous/index.vue"),

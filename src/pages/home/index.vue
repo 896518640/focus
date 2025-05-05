@@ -16,22 +16,22 @@ interface TranslationItem {
 
 // 功能卡片数据
 const features = [
-  { 
-    id: 'recognition', 
-    title: '实时语音识别', 
-    description: '将课堂讲解转为文本', 
-    icon: 'fa-microphone', 
-    color: '#FF2D55',
-    path: '/recognition'
-  },
   // { 
-  //   id: 'upload', 
-  //   title: '录音上传', 
-  //   description: '上传音频文件转为文本', 
-  //   icon: 'fa-cloud-upload-alt', 
-  //   color: '#007AFF',
-  //   path: '/upload'
+  //   id: 'recognition', 
+  //   title: '实时语音识别', 
+  //   description: '将课堂讲解转为文本', 
+  //   icon: 'fa-microphone', 
+  //   color: '#FF2D55',
+  //   path: '/recognition'
   // },
+  { 
+    id: 'upload', 
+    title: '录音上传', 
+    description: '上传音频文件转为文本', 
+    icon: 'fa-cloud-upload-alt', 
+    color: '#007AFF',
+    path: '/upload'
+  },
   // { 
   //   id: 'translate', 
   //   title: '机器翻译', 

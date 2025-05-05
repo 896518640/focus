@@ -8,7 +8,7 @@ import { request } from '@/http/axios'
  */
 export function login(username: string, password: string) {
   return request({
-    url: '/auth/login',
+    url: '/user/auth/login',
     method: 'post',
     data: {
       username,
@@ -23,7 +23,7 @@ export function login(username: string, password: string) {
  */
 export function getCurrentUser() {
   return request({
-    url: '/auth/me',
+    url: '/user/auth/me',
     method: 'get'
   })
 }
@@ -37,7 +37,7 @@ export function getCurrentUser() {
  */
 export function register(username: string, email: string, password: string) {
   return request({
-    url: '/auth/register',
+    url: '/user/auth/register',
     method: 'post',
     data: {
       username,
