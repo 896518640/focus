@@ -5,7 +5,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  text: "SpeakFlow",
+  text: "Focus",
   subtext: "智能语音实时转写助手"
 });
 </script>
@@ -13,7 +13,7 @@ const props = withDefaults(defineProps<Props>(), {
 <template>
   <div class="brand-container">
     <div class="logo-wrapper">
-      <img src="/logo.png" class="logo-image" alt="SpeakFlow Logo">
+      <img src="/logo.png" class="logo-image" alt="Focus Logo">
       <div class="logo-glow"></div>
     </div>
     
