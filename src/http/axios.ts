@@ -11,10 +11,11 @@ import {
   StreamRequestFunction
 } from '@/types/api';
 
-/** 退出登录并强制刷新页面（会重定向到登录页） */
+/** 退出登录并跳转到登录页面 */
 function logout() {
   useUserStore().resetToken()
-  location.reload()
+  // 不再使用 location.reload()，改为直接跳转到登录页
+  window.location.href = '/login'
 }
 
 /**
@@ -99,12 +100,8 @@ function createInstance(customConfig: AxiosRequestConfig = {}) {
             // 本系统采用 code === 0 来表示没有业务错误
             return apiData;
           case 401:
-            // 登录过期，但在登录页不触发登出
-            const currentPath = window.location.pathname;
-            if (currentPath !== '/login') {
-              logout();
-            }
-            showErrorMessage(apiData.message || "登录过期");
+            // 处理登录过期
+            handleUnauthorized(apiData.message || "登录过期");
             return Promise.reject(new Error(apiData.message || "登录过期"));
           default:
             // 不是正确的 code，显示错误提示
@@ -138,12 +135,9 @@ function createInstance(customConfig: AxiosRequestConfig = {}) {
           errorMsg = message || "请求错误";
           break;
         case 401:
-          // 登录过期，但在登录页不触发登出
-          errorMsg = message || "登录过期";
-          const currentPath = window.location.pathname;
-          if (currentPath !== '/login') {
-            logout();
-          }
+          // 处理未授权错误
+          handleUnauthorized(message || "登录状态已失效");
+          errorMsg = message || "登录状态已失效";
           break;
         case 403:
           errorMsg = message || "拒绝访问";
@@ -418,3 +412,53 @@ export const requestStream: StreamRequestFunction = function <T>(
     controller.abort();
   };
 }
+
+/**
+ * 处理未授权（401）错误
+ * @param message 错误信息
+ */
+function handleUnauthorized(message: string): void {
+  // 获取当前路径
+  const currentPath = window.location.pathname;
+  
+  // 避免重复处理，使用一个静态变量记录是否已经处理过
+  if ((handleUnauthorized as any).isProcessing) {
+    return;
+  }
+  
+  // 标记为正在处理
+  (handleUnauthorized as any).isProcessing = true;
+  
+  // 如果不在登录页，则执行登出操作
+  if (currentPath !== '/login') {
+    // 提示用户
+    showErrorMessage(message);
+    
+    // 添加延迟，让用户有时间看到提示
+    setTimeout(() => {
+      // 登出并直接跳转到登录页，不要刷新页面
+      const userStore = useUserStore();
+      userStore.resetToken();
+      
+      // 使用window.location.href直接跳转，避免刷新
+      window.location.href = '/login';
+      
+      // 重置处理状态（虽然页面会跳转，但为了安全起见）
+      setTimeout(() => {
+        (handleUnauthorized as any).isProcessing = false;
+      }, 5000);
+    }, 1500);
+  } else {
+    // 如果已经在登录页，则只重置token
+    const userStore = useUserStore();
+    userStore.resetToken();
+    
+    // 一定时间后重置处理状态
+    setTimeout(() => {
+      (handleUnauthorized as any).isProcessing = false;
+    }, 2000);
+  }
+}
+
+// 重新导出toast方法，避免导入错误
+export { showErrorMessage, showSuccessMessage };

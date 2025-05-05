@@ -2,6 +2,7 @@ import { pinia } from "@/pinia"
 import { getCurrentUserApi } from "@/api/users"
 import { setToken as _setToken, getToken, removeToken } from "@/utils/cache/cookies"
 import { ref, computed, watch } from 'vue';
+import { defineStore } from 'pinia';
 
 // 添加翻译历史相关接口定义
 export interface TranslationHistoryItem {
@@ -43,6 +44,7 @@ export const useUserStore = defineStore("user", () => {
   const email = ref<string>("")
   const role = ref<string>("")
   const isActive = ref<boolean>(false)
+  const userInfoLoaded = ref<boolean>(false)
 
   // === 添加翻译历史相关状态 ===
   const translationHistory = ref<TranslationHistoryItem[]>([]);
@@ -58,6 +60,7 @@ export const useUserStore = defineStore("user", () => {
 
   // === 用户认证相关计算属性 ===
   const isLoggedIn = computed(() => !!token.value);
+  const isUserInfoLoaded = computed(() => userInfoLoaded.value);
 
   // === 翻译历史相关计算属性 ===
   const favoriteTranslations = computed(() => {
@@ -96,6 +99,9 @@ export const useUserStore = defineStore("user", () => {
         preferences: { ...defaultPreferences },
       }
 
+      // 标记用户信息已加载
+      userInfoLoaded.value = true
+      
       return res
     } catch (error) {
       resetToken()
@@ -121,6 +127,7 @@ export const useUserStore = defineStore("user", () => {
     email.value = ""
     role.value = ""
     isActive.value = false
+    userInfoLoaded.value = false
     
     // 重置用户资料为游客状态
     profile.value = {
@@ -254,18 +261,46 @@ export const useUserStore = defineStore("user", () => {
     }
   }
 
+  // 加载用户信息（用于导航守卫）
+  const getUserInfo = async () => {
+    if (token.value && !userInfoLoaded.value) {
+      return await getInfo();
+    }
+    return null;
+  }
+
   // 初始化
   init();
 
-  return { 
-    // 认证相关导出
-    token, roles, username, userId, email, role, isActive, isLoggedIn,
-    setToken, getInfo, changeRoles, resetToken, logout, setGuestMode,
+  return {
+    token,
+    roles,
+    username,
+    userId,
+    email,
+    profile,
     
-    // 翻译历史相关导出
-    profile, translationHistory, favoriteTranslations,
-    saveTranslation, toggleFavorite, deleteHistoryItem, 
-    clearHistory, updateTranslationHistory, updatePreferences
+    isLoggedIn,
+    isUserInfoLoaded,
+    favoriteTranslations,
+    
+    setToken,
+    getInfo,
+    getUserInfo,
+    resetToken,
+    logout,
+    changeRoles,
+    setGuestMode,
+    
+    translationHistory,
+    saveTranslation,
+    toggleFavorite,
+    deleteHistoryItem,
+    clearHistory,
+    updateTranslationHistory,
+    updatePreferences,
+    init,
+    loadHistory
   }
 })
 
