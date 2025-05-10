@@ -9,6 +9,7 @@ import UsageTips from './components/UsageTips.vue';
 import BottomNavigation from './components/BottomNavigation.vue';
 import TranslationSettings from '@/components/common/TranslationSettings.vue';
 import AiSummaryPopup from './components/AiSummaryPopup.vue';
+import FloatingCaption from './components/FloatingCaption.vue';
 import { useSimultaneousTranslation, useAiSummary } from './composables';
 
 const router = useRouter();
@@ -144,6 +145,14 @@ const handleSkipAnimation = () => {
     displayedContent.value = summaryContent.value;
   }
 };
+
+// 在data部分添加
+const isPipActive = ref(false);
+
+// 添加切换悬浮字幕的方法
+const togglePictureInPicture = () => {
+  isPipActive.value = !isPipActive.value;
+};
 </script>
 
 <template>
@@ -217,16 +226,28 @@ const handleSkipAnimation = () => {
       />
     </div>
     
+    <!-- 悬浮字幕 -->
+    <FloatingCaption 
+      :transcription="displayedSource"
+      :translation="displayedTranslation"
+      :is-active="isPipActive"
+      :source-language="localSourceLanguage"
+      :target-language="localTargetLanguage"
+      @update:is-active="isPipActive = $event"
+    />
+    
     <!-- 底部导航 -->
     <BottomNavigation
       :is-recording="isTranslating"
       :is-button-pressing="isButtonPressing"
       :is-paused="isPaused"
       :is-saving="isSaving"
+      :is-pip-active="isPipActive"
       @toggle-recording="toggleRecording"
       @toggle-settings="toggleSettings"
       @save-translation="saveTranslation"
       @toggle-ai-summary="toggleSummary"
+      @toggle-picture-in-picture="togglePictureInPicture"
       class="animate__animated animate__fadeIn page-element" 
       style="animation-delay: 0.5s;"
     />

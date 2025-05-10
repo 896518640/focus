@@ -15,15 +15,19 @@ defineProps({
   isSaving: {
     type: Boolean,
     default: false
+  },
+  isPipActive: {
+    type: Boolean,
+    default: false
   }
 });
 
-defineEmits(['toggleRecording', 'toggleSettings', 'saveTranslation', 'toggleAiSummary']);
+defineEmits(['toggleRecording', 'toggleSettings', 'saveTranslation', 'toggleAiSummary', 'togglePictureInPicture']);
 </script>
 
 <template>
   <div class="bottom-bar">
-    <button class="bottom-button ripple-effect">
+    <button class="bottom-button ripple-effect" @click="$emit('togglePictureInPicture')" :class="{ 'active': isPipActive }">
       <i class="fas fa-closed-captioning"></i>
       <span>悬浮字幕</span>
     </button>
