@@ -30,31 +30,81 @@ export interface CurrentUserResponseData {
 }
 
 /**
- * 用户统计信息
+ * 会员信息
  */
-export interface UserStats {
-  /** 用户ID */
-  id: string;
-  /** 学习时间（小时） */
-  studyHours: number;
-  /** 识别数量 */
-  recognitionCount: number;
-  /** 文件数量 */
-  fileCount: number;
-  /** 翻译数量 */
+export interface MembershipInfo {
+  /** 会员等级 */
+  level: string;
+  /** 下次重置时间 */
+  next_reset_time: string;
+  /** 总分钟数 */
+  total_minutes: number;
+  /** 已使用分钟数 */
+  used_minutes: number;
+  /** 剩余分钟数 */
+  remaining_minutes: number;
+}
+
+/**
+ * 功能特性启用状态
+ */
+export interface FeaturesStatus {
+  /** 翻译功能是否启用 */
+  translationEnabled: boolean;
+}
+
+/**
+ * 用户使用情况
+ */
+export interface UserUsage {
+  /** 已使用的转录分钟数 */
+  transcribeMinutesUsed: number;
+  /** 已使用的翻译分钟数 */
+  translateMinutesUsed: number;
+  /** 翻译次数 */
   translationCount: number;
-  /** 摘要数量 */
-  summaryCount: number;
+}
+
+/**
+ * 用户设置
+ */
+export interface UserSettings {
+  /** 设置ID */
+  id: string;
+  /** 源语言 */
+  sourceLanguage: string;
+  /** 目标语言 */
+  targetLanguage: string;
+  /** 是否启用翻译 */
+  translationEnabled: boolean;
+  /** 是否自动保存 */
+  autoSave: boolean;
+  /** 主题 */
+  theme: string;
   /** 用户ID */
   userId: string;
 }
 
 /**
- * 用户资料响应数据
+ * 最近翻译记录项
+ */
+export interface RecentTranslation {
+  /** 翻译ID */
+  id: string;
+  /** 原文内容 */
+  sourceText: string;
+  /** 翻译内容 */
+  translatedText: string;
+  /** 创建时间 */
+  createdAt: string;
+}
+
+/**
+ * 新的用户资料响应数据
  */
 export interface UserProfileData {
   /** 用户ID */
-  id: string;
+  user_id: string;
   /** 用户名 */
   username: string;
   /** 显示名称 */
@@ -62,17 +112,23 @@ export interface UserProfileData {
   /** 邮箱 */
   email: string;
   /** 头像URL */
-  avatar?: string;
+  avatar: string | null;
   /** 角色 */
   role: string;
   /** 创建时间 */
   createdAt: string;
   /** 最近登录时间 */
-  lastLoginAt?: string;
+  lastLoginAt: string;
+  /** 会员信息 */
+  membership: MembershipInfo;
+  /** 功能特性状态 */
+  features: FeaturesStatus;
+  /** 使用情况 */
+  usage: UserUsage;
   /** 用户设置 */
-  settings?: any;
-  /** 使用统计 */
-  usageStats?: UserStats;
+  settings: UserSettings;
+  /** 最近翻译 */
+  recent_translations: RecentTranslation[];
 }
 
 /**
@@ -112,18 +168,6 @@ export interface ChangePasswordParams {
   oldPassword: string;
   /** 新密码 */
   newPassword: string;
-}
-
-/**
- * 用户设置
- */
-export interface UserSettings {
-  /** 默认语言 */
-  defaultLanguage?: string;
-  /** 主题 */
-  theme?: string;
-  /** 其他设置 */
-  [key: string]: any;
 }
 
 /**

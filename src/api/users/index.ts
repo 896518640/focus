@@ -5,6 +5,7 @@ import {
   UpdateProfileParams,
   UpdateProfileResponseData
 } from '@/types/api/users';
+import { SuccessApiResponse } from '@/types/api';
 
 /** 获取当前登录用户基本信息 */
 export function getCurrentUserApi() {

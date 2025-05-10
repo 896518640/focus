@@ -1,0 +1,350 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Focus App 编码风格指南
+
+## 基本原则
+
+1. 使用中文进行沟通、注释和文档编写
+2. 编写高质量、优雅、易于维护、有深度、拓展性的代码
+3. 非经明确许可，不对需求外的代码进行修改，不擅自添加新功能
+4. 创建新文件时尽可能一次性完成；若代码量大，分两步实现：
+   - 第一步：搭建整体架构和基础结构
+   - 第二步：完善细节和功能实现
+5. 单个组件或页面超过500行时，进行组件拆分和逻辑抽离
+
+## 项目结构
+
+```
+src/
+├── api/                # API请求函数
+├── assets/             # 静态资源
+├── components/         # 组件
+│   ├── common/         # 通用组件
+│   └── layout/         # 布局组件
+├── hooks/              # 全局Hooks
+├── pages/              # 页面
+│   ├── [feature]/      # 功能页面
+│   │   ├── components/ # 页面专用组件
+│   │   ├── composables/ # 组合式函数
+│   │   └── index.vue   # 页面入口
+├── pinia/              # 状态管理
+│   └── stores/         # Store定义
+├── router/             # 路由配置
+├── styles/             # 全局样式
+└── utils/              # 工具函数
+```
+
+## Vue组件规范
+
+### 基本规范
+
+- 使用Vue 3组合式API (`<script setup>`)
+- 使用TypeScript进行类型定义
+- 组件名使用PascalCase命名法
+- 页面组件放置在对应功能目录下的`index.vue`
+- 业务组件放置在功能目录下的`components`文件夹中
+- 通用组件放置在全局`components/common`文件夹中
+
+### 组件结构
+
+```vue
+<script setup lang="ts">
+// 1. 导入
+import { ref, computed, onMounted } from 'vue';
+import { useExampleStore } from '@/pinia/stores/example';
+import ComponentA from './components/ComponentA.vue';
+
+// 2. 类型定义
+interface DataType {
+  id: string;
+  name: string;
+}
+
+// 3. 响应式状态
+const data = ref<DataType[]>([]);
+const isLoading = ref(false);
+
+// 4. 计算属性
+const computedValue = computed(() => {
+  // 计算逻辑
+});
+
+// 5. 方法定义
+const handleEvent = () => {
+  // 事件处理逻辑
+};
+
+// 6. 生命周期
+onMounted(() => {
+  // 初始化逻辑
+});
+</script>
+
+<template>
+  <div class="component-name">
+    <!-- 内容结构 -->
+  </div>
+</template>
+
+<style scoped>
+/* 组件样式，遵循BEM命名规范 */
+.component-name {
+  /* 样式定义 */
+}
+</style>
+```
+
+### Compositional API使用
+
+```typescript
+// 提取可复用逻辑到组合式函数
+export function useFeature() {
+  // 状态
+  const state = ref(initialValue);
+  
+  // 计算属性
+  const computed = computed(() => {
+    // 计算逻辑
+  });
+  
+  // 方法
+  const doSomething = () => {
+    // 方法实现
+  };
+  
+  // 清理函数
+  const cleanup = () => {
+    // 清理资源、事件监听等
+  };
+  
+  // 暴露接口
+  return {
+    state,
+    computed,
+    doSomething,
+    cleanup
+  };
+}
+```
+
+## CSS样式规范
+
+### 命名规范
+
+- 使用BEM命名方法：`block__element--modifier`
+- 类名使用kebab-case (短横线)命名法
+- 使用语义化命名，避免过于抽象的名称
+
+### 变量和主题
+
+```css
+:root {
+  /* 主题色 */
+  --primary-color: #3b82f6;
+  --primary-color-light: #93c5fd;
+  --primary-color-dark: #1d4ed8;
+  
+  /* 文本色 */
+  --text-color: #0f172a;
+  --text-light: #64748b;
+  --text-lighter: #94a3b8;
+  
+  /* 背景色 */
+  --bg-color: #f8fafc;
+  --card-bg: #ffffff;
+  
+  /* 功能色 */
+  --success-color: #10b981;
+  --warning-color: #f59e0b;
+  --danger-color: #ef4444;
+  
+  /* 计算变量 */
+  --primary-rgb: 59, 130, 246;
+  --danger-rgb: 239, 68, 68;
+  
+  /* 边框和阴影 */
+  --border-color: rgba(100, 116, 139, 0.1);
+  --hover-color: rgba(100, 116, 139, 0.05);
+}
+
+/* 深色模式 */
+.dark-theme {
+  /* 深色主题变量覆盖 */
+}
+```
+
+### 媒体查询与响应式设计
+
+```css
+/* 桌面优先 */
+@media (max-width: 991px) {
+  /* 平板样式 */
+}
+
+@media (max-width: 767px) {
+  /* 手机样式 */
+}
+
+@media (max-width: 575px) {
+  /* 小屏手机样式 */
+}
+```
+
+## TypeScript规范
+
+### 类型定义
+
+- 为API响应创建接口定义
+- 为函数参数和返回值提供类型注解
+- 使用类型别名简化复杂类型
+- 避免使用`any`类型，必要时使用`unknown`
+
+```typescript
+// API响应类型
+interface UserProfileResponse {
+  code: number;
+  success: boolean;
+  message: string;
+  data: UserProfile;
+  timestamp: string;
+}
+
+interface UserProfile {
+  user_id: string;
+  username: string;
+  displayName: string;
+  email: string;
+  // 其他字段...
+}
+
+// 函数类型注解
+function processData(data: UserProfile): Result {
+  // 处理逻辑
+}
+```
+
+### 约定
+
+- 使用`interface`定义对象类型
+- 使用`type`定义联合类型或工具类型
+- 枚举值使用PascalCase命名法
+- 常量使用UPPER_SNAKE_CASE命名法
+
+## API请求规范
+
+```typescript
+import axios from 'axios';
+
+// 定义响应类型
+interface ApiResponse<T> {
+  code: number;
+  success: boolean;
+  message: string;
+  data: T;
+  timestamp: string;
+}
+
+// API请求函数
+export async function getUserProfileApi(): Promise<ApiResponse<UserProfile>> {
+  try {
+    const response = await axios.get('/user/profile');
+    return response.data;
+  } catch (error) {
+    // 统一错误处理
+    handleApiError(error);
+    throw error;
+  }
+}
+```
+
+## 性能优化准则
+
+1. 合理使用v-if和v-show
+   - 频繁切换的元素使用v-show
+   - 较少切换的元素使用v-if
+
+2. 避免不必要的组件渲染
+   - 使用v-once处理静态内容
+   - 使用计算属性缓存结果
+
+3. 大数据列表优化
+   - 实现虚拟滚动
+   - 分页加载数据
+
+4. 资源优化
+   - 图片懒加载
+   - 按需导入组件和库
+
+## 代码审查清单
+
+1. 代码是否符合项目风格规范？
+2. 是否使用了适当的类型定义？
+3. 组件是否过于复杂？是否需要拆分？
+4. 是否有重复的代码可以抽象为公共函数？
+5. 是否处理了各种边缘情况？
+6. 性能是否得到优化？
+7. 代码是否有足够的注释？
+
+## 最佳实践示例
+
+### 组合式函数示例
+
+```typescript
+// useTimer.ts
+import { ref, onUnmounted } from 'vue';
+
+export function useTimer() {
+  const seconds = ref(0);
+  const minutes = ref(0);
+  const isRunning = ref(false);
+  
+  let interval: number | null = null;
+  
+  const start = () => {
+    if (isRunning.value) return;
+    isRunning.value = true;
+    interval = window.setInterval(() => {
+      seconds.value++;
+      if (seconds.value >= 60) {
+        minutes.value++;
+        seconds.value = 0;
+      }
+    }, 1000);
+  };
+  
+  const stop = () => {
+    if (!isRunning.value) return;
+    clearInterval(interval!);
+    interval = null;
+    isRunning.value = false;
+  };
+  
+  const reset = () => {
+    stop();
+    seconds.value = 0;
+    minutes.value = 0;
+  };
+  
+  const cleanup = () => {
+    if (interval) {
+      clearInterval(interval);
+    }
+  };
+  
+  // 组件卸载时自动清理
+  onUnmounted(cleanup);
+  
+  return {
+    seconds,
+    minutes,
+    isRunning,
+    start,
+    stop,
+    reset,
+    cleanup
+  };
+}
+``` 

@@ -1,0 +1,114 @@
+{
+  "name": "Focus App 开发规范",
+  "version": "1.0.0",
+  "description": "Focus App 是一个专注于翻译和同传功能的应用，本规范定义了项目的编码标准和最佳实践",
+  "rules": {
+    "general": [
+      "使用中文注释和文档，确保团队成员更好地理解代码",
+      "编写高质量、优雅、易于维护、有拓展性的代码",
+      "未经明确许可，不要修改需求以外的代码或擅自添加新功能",
+      "创建新文件时，尽可能一次完成，代码过长时分步实现：先搭建架构，再补充细节",
+      "单个组件或页面超过500行时，进行拆分封装，按功能分离代码"
+    ],
+    "file_structure": {
+      "src": {
+        "api": "所有API请求函数，按功能模块分文件",
+        "assets": "静态资源文件，如图片、字体等",
+        "components": {
+          "common": "通用组件，可在多个页面复用",
+          "layout": "布局相关组件",
+          "[feature]": "特定功能相关的组件放在对应目录下"
+        },
+        "hooks": "自定义Hooks函数",
+        "pages": "所有页面组件，每个主要功能一个文件夹",
+        "pinia": {
+          "stores": "Pinia状态管理文件"
+        },
+        "router": "路由配置",
+        "styles": "全局样式文件",
+        "utils": "工具函数"
+      }
+    },
+    "code_style": {
+      "vue": [
+        "使用Vue 3 组合式API (Composition API)",
+        "<script setup> 语法用于组件开发",
+        "使用TypeScript进行类型定义",
+        "组件名使用PascalCase",
+        "props定义使用详细类型声明",
+        "使用ref()、computed()、watch()等响应式API",
+        "自定义hook函数使用use前缀",
+        "使用组合式函数(composables)封装逻辑"
+      ],
+      "css": [
+        "使用scoped样式隔离组件样式",
+        "遵循BEM命名规范",
+        "关键UI组件使用css变量实现主题切换",
+        "移动端适配使用媒体查询"
+      ],
+      "typescript": [
+        "为所有API响应定义接口类型",
+        "使用类型声明提高代码健壮性",
+        "避免使用any类型，除非明确需要"
+      ]
+    },
+    "performance": [
+      "组件使用v-if代替v-show（需要频繁切换的UI除外）",
+      "列表使用v-for时必须提供key属性",
+      "大数据列表考虑虚拟滚动",
+      "避免深层嵌套的响应式数据结构"
+    ],
+    "components": {
+      "pageComponent": {
+        "目录结构": "[feature]/index.vue",
+        "组成部分": [
+          "页面级组件集成多个业务组件",
+          "负责页面路由和数据获取",
+          "不包含复杂业务逻辑"
+        ]
+      },
+      "businessComponent": {
+        "目录结构": "[feature]/components/[ComponentName].vue",
+        "组成部分": [
+          "实现特定业务功能的组件",
+          "可在同一功能下复用",
+          "包含特定业务逻辑"
+        ]
+      },
+      "commonComponent": {
+        "目录结构": "components/common/[ComponentName].vue",
+        "组成部分": [
+          "通用UI组件，不包含业务逻辑",
+          "高度可复用",
+          "提供灵活的配置选项"
+        ]
+      }
+    },
+    "composables": {
+      "命名": "use[FeatureName].ts",
+      "目录": "[feature]/composables/",
+      "原则": [
+        "单一职责原则",
+        "封装特定逻辑，返回数据和方法",
+        "不应直接操作DOM（除非必要）",
+        "提供cleanup函数处理副作用"
+      ]
+    },
+    "api": {
+      "命名": "[feature]Api.ts",
+      "规范": [
+        "使用axios配置拦截器处理请求响应",
+        "API函数使用统一的错误处理",
+        "返回Promise<T>类型"
+      ]
+    },
+    "state_management": {
+      "原则": [
+        "使用Pinia进行状态管理",
+        "按功能模块拆分store",
+        "避免冗余数据保存",
+        "合理使用持久化存储"
+      ]
+    }
+  }
+} 
