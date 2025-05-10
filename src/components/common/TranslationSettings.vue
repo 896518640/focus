@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, computed, PropType } from 'vue';
+import { ref, watch, onMounted } from 'vue';
 
 const props = defineProps({
   show: {
@@ -14,26 +14,28 @@ const props = defineProps({
     type: String,
     default: 'en'
   },
-  multiTargetMode: {
-    type: Boolean,
-    default: false
-  },
-  multiTargetLanguages: {
-    type: Array as PropType<string[]>,
-    default: () => []
-  },
   title: {
     type: String,
     default: '翻译设置'
+  },
+  showSourceLanguage: {
+    type: Boolean,
+    default: true
+  },
+  showTargetLanguage: {
+    type: Boolean,
+    default: true
+  },
+  showTranslationToggle: {
+    type: Boolean,
+    default: true
   }
 });
 
 const emit = defineEmits([
   'update:show', 
   'source-language-change', 
-  'target-language-change', 
-  'multi-target-languages-change',
-  'toggle-multi-target-mode'
+  'target-language-change'
 ]);
 
 // 翻译开启的开关
@@ -43,10 +45,6 @@ const translationEnabled = ref(true);
 const currentSourceLanguage = ref('');
 const currentTargetLanguage = ref('');
 
-// 多目标语言模式
-const isMultiTargetMode = ref(props.multiTargetMode);
-const selectedTargetLanguages = ref<string[]>([...props.multiTargetLanguages]);
-
 // 保存设置的反馈状态
 const isSaved = ref(false);
 
@@ -55,14 +53,6 @@ onMounted(() => {
   // 首先使用prop值设置默认值
   currentSourceLanguage.value = String(props.sourceLanguage);
   currentTargetLanguage.value = String(props.targetLanguage);
-  isMultiTargetMode.value = props.multiTargetMode;
-  
-  if (props.multiTargetLanguages.length > 0) {
-    selectedTargetLanguages.value = [...props.multiTargetLanguages];
-  } else if (props.targetLanguage) {
-    // 如果没有提供多目标语言但有单一目标语言，则将其作为第一个选中的多目标语言
-    selectedTargetLanguages.value = [props.targetLanguage];
-  }
   
   // 尝试从本地存储读取保存的设置
   try {
@@ -81,16 +71,6 @@ onMounted(() => {
         emit('target-language-change', settings.targetLanguage);
       }
       
-      if (settings.multiTargetMode !== undefined) {
-        isMultiTargetMode.value = settings.multiTargetMode;
-        emit('toggle-multi-target-mode', settings.multiTargetMode);
-      }
-      
-      if (settings.multiTargetLanguages && settings.multiTargetLanguages.length > 0) {
-        selectedTargetLanguages.value = [...settings.multiTargetLanguages];
-        emit('multi-target-languages-change', settings.multiTargetLanguages);
-      }
-      
       if (settings.translationEnabled !== undefined) {
         translationEnabled.value = settings.translationEnabled;
       }
@@ -107,16 +87,6 @@ watch(() => props.sourceLanguage, (newVal) => {
 
 watch(() => props.targetLanguage, (newVal) => {
   currentTargetLanguage.value = String(newVal);
-});
-
-watch(() => props.multiTargetMode, (newVal) => {
-  isMultiTargetMode.value = newVal;
-});
-
-watch(() => props.multiTargetLanguages, (newVal) => {
-  if (newVal && newVal.length > 0) {
-    selectedTargetLanguages.value = [...newVal];
-  }
 });
 
 // 语言映射表
@@ -138,9 +108,6 @@ const languageOptions = Object.entries(languageMap).map(([code, name]) => ({
   code,
   name
 }));
-
-// 计算当前已选中的目标语言数量
-const selectedLanguagesCount = computed(() => selectedTargetLanguages.value.length);
 
 // 关闭弹窗
 const closePopup = () => {
@@ -169,52 +136,6 @@ const selectTargetLanguage = (code: string) => {
   }
 };
 
-// 切换多语言翻译目标
-const toggleMultiTargetLanguage = (code: string) => {
-  const index = selectedTargetLanguages.value.indexOf(code);
-  
-  if (index === -1) {
-    // 如果没有选中，则添加到数组中
-    selectedTargetLanguages.value.push(code);
-  } else {
-    // 如果已经选中且不是最后一个元素，则从数组中移除
-    if (selectedTargetLanguages.value.length > 1) {
-      selectedTargetLanguages.value.splice(index, 1);
-    }
-  }
-  
-  // 触发更新事件
-  emit('multi-target-languages-change', [...selectedTargetLanguages.value]);
-  
-  // 同时更新单一目标语言为第一个选中的语言
-  if (selectedTargetLanguages.value.length > 0) {
-    currentTargetLanguage.value = selectedTargetLanguages.value[0];
-    emit('target-language-change', currentTargetLanguage.value);
-  }
-  
-  // 添加触觉反馈
-  if (navigator.vibrate) {
-    navigator.vibrate(5);
-  }
-};
-
-// 切换单/多目标语言模式
-const toggleMultiTargetMode = () => {
-  isMultiTargetMode.value = !isMultiTargetMode.value;
-  emit('toggle-multi-target-mode', isMultiTargetMode.value);
-  
-  // 确保多目标语言数组至少包含当前单一目标语言
-  if (isMultiTargetMode.value && selectedTargetLanguages.value.length === 0) {
-    selectedTargetLanguages.value = [currentTargetLanguage.value];
-    emit('multi-target-languages-change', selectedTargetLanguages.value);
-  }
-  
-  // 添加触觉反馈
-  if (navigator.vibrate) {
-    navigator.vibrate(10);
-  }
-};
-
 // 切换翻译开关
 const toggleTranslation = () => {
   translationEnabled.value = !translationEnabled.value;
@@ -232,8 +153,6 @@ const saveSettings = () => {
     const settings = {
       sourceLanguage: currentSourceLanguage.value,
       targetLanguage: currentTargetLanguage.value,
-      multiTargetMode: isMultiTargetMode.value,
-      multiTargetLanguages: [...selectedTargetLanguages.value],
       translationEnabled: translationEnabled.value
     };
     
@@ -272,7 +191,7 @@ const saveSettings = () => {
       
       <div class="settings-content">
         <!-- 声音来源选项 -->
-        <div class="source-language-section">
+        <div v-if="showSourceLanguage" class="source-language-section">
           <div class="section-title">声音来源</div>
           <div class="language-options">
             <button 
@@ -287,50 +206,32 @@ const saveSettings = () => {
           </div>
         </div>
         
-        <div class="settings-divider"></div>
-        
-        <!-- 多目标语言模式开关 -->
-        <div class="switch-section">
-          <div class="switch-label">
-            <span>多语言翻译模式</span>
-            <span class="badge" v-if="isMultiTargetMode">{{ selectedLanguagesCount }}</span>
-          </div>
-          <div class="toggle-switch" :class="{ 'active': isMultiTargetMode }" @click="toggleMultiTargetMode">
-            <div class="toggle-button"></div>
-          </div>
-        </div>
-        
-        <div class="settings-divider"></div>
+        <div v-if="showSourceLanguage && (showTargetLanguage || showTranslationToggle)" class="settings-divider"></div>
         
         <!-- 目标语言选项 -->
-        <div class="target-language-section">
-          <div class="section-title">{{ isMultiTargetMode ? '目标语言 (多选)' : '目标语言' }}</div>
+        <div v-if="showTargetLanguage" class="target-language-section">
+          <div class="section-title">目标语言</div>
           <div class="language-options">
             <button 
               v-for="option in languageOptions" 
               :key="option.code"
               class="language-option"
               :class="{ 
-                'active': isMultiTargetMode 
-                  ? selectedTargetLanguages.includes(option.code) 
-                  : currentTargetLanguage === option.code,
+                'active': currentTargetLanguage === option.code,
                 'disabled': option.code === currentSourceLanguage
               }"
-              @click="isMultiTargetMode 
-                ? toggleMultiTargetLanguage(option.code) 
-                : selectTargetLanguage(option.code)"
+              @click="selectTargetLanguage(option.code)"
               :disabled="option.code === currentSourceLanguage"
             >
               {{ option.name }}
-              <i class="fas fa-check check-icon" v-if="isMultiTargetMode && selectedTargetLanguages.includes(option.code)"></i>
             </button>
           </div>
         </div>
         
-        <div class="settings-divider"></div>
+        <div v-if="showTargetLanguage && showTranslationToggle" class="settings-divider"></div>
         
         <!-- 翻译开关 -->
-        <div class="switch-section">
+        <div v-if="showTranslationToggle" class="switch-section">
           <div class="switch-label">开启翻译</div>
           <div class="toggle-switch" :class="{ 'active': translationEnabled }" @click="toggleTranslation">
             <div class="toggle-button"></div>
@@ -343,7 +244,7 @@ const saveSettings = () => {
         <div class="settings-footer">
           <div class="settings-info">
             <i class="fas fa-info-circle"></i>
-            <span>{{ isMultiTargetMode ? '多语言翻译可能会降低翻译速度' : '选择正确的声音来源语言可以提高翻译质量' }}</span>
+            <span>选择正确的声音来源语言可以提高翻译质量</span>
           </div>
           <button class="remember-btn" @click="saveSettings" :class="{ 'saved': isSaved }">
             {{ isSaved ? '设置已保存' : '记住设置' }}
@@ -478,11 +379,6 @@ const saveSettings = () => {
   cursor: not-allowed;
 }
 
-.check-icon {
-  margin-left: 6px;
-  font-size: 12px;
-}
-
 /* 开关区域 */
 .switch-section {
   display: flex;
@@ -496,17 +392,6 @@ const saveSettings = () => {
   color: #000;
   display: flex;
   align-items: center;
-}
-
-.badge {
-  background-color: #007AFF;
-  color: white;
-  border-radius: 12px;
-  padding: 2px 6px;
-  font-size: 12px;
-  margin-left: 8px;
-  min-width: 20px;
-  text-align: center;
 }
 
 .toggle-switch {
