@@ -54,7 +54,7 @@ export const routes: RouteRecordRaw[] = [
       {
         path: "/recognition",
         name: "Recognition",
-        component: () => import("@/pages/recognition/index.vue"),
+        component: () => import("@/pages/abandon_recognition/index.vue"),
         meta: {
           title: "识别",
           showNav: true
@@ -108,7 +108,7 @@ export const routes: RouteRecordRaw[] = [
       {
         path: "/translate-demo",
         name: "TranslateDemo",
-        component: () => import("@/pages/demo/translate-demo.vue"),
+        component: () => import("@/pages/abandon_demo/translate-demo.vue"),
         meta: {
           title: "实时翻译演示",
           showNav: false
